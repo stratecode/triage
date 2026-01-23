@@ -22,6 +22,7 @@ This project uses `uv` for package management.
 
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/) package manager
+- JIRA account with API token
 
 ### Installation
 
@@ -32,8 +33,69 @@ uv venv
 # Install dependencies
 uv pip install -r requirements.txt
 
-# Or install in development mode
+# Install in development mode
 uv pip install -e .
+```
+
+### Configuration
+
+1. Copy the example environment file:
+```bash
+cp .env.example .env
+```
+
+2. Edit `.env` and fill in your JIRA credentials:
+```bash
+JIRA_BASE_URL=https://your-company.atlassian.net
+JIRA_EMAIL=your-email@company.com
+JIRA_API_TOKEN=your-api-token
+```
+
+3. Generate a JIRA API token at: https://id.atlassian.com/manage-profile/security/api-tokens
+
+## Usage
+
+### Generate Daily Plan
+
+```bash
+# Load environment variables
+source .env
+
+# Generate plan to stdout
+ai-secretary generate-plan
+
+# Generate plan to file
+ai-secretary generate-plan -o daily-plan.md
+
+# Generate plan with previous day's closure rate
+ai-secretary generate-plan --closure-rate 0.67
+```
+
+### Example Output
+
+```markdown
+# Daily Plan - 2026-01-23
+
+## Today's Priorities
+
+1. **[PROJ-123] Implement user authentication**
+   - Effort: 8.0 hours
+   - Type: Story
+   - Priority: High
+
+2. **[PROJ-124] Fix login bug**
+   - Effort: 4.0 hours
+   - Type: Bug
+
+## Administrative Block (14:00-15:30)
+
+- [ ] [PROJ-126] Email responses
+- [ ] [PROJ-127] Weekly report
+
+## Other Active Tasks (For Reference)
+
+- [PROJ-129] Waiting on external team (blocked by dependencies)
+- [PROJ-130] Multi-day feature (decomposition needed)
 ```
 
 ## Development
@@ -74,17 +136,20 @@ tests/                 # Test suite
 - ✅ Project setup with uv
 - ✅ Core data models (JiraIssue, TaskClassification, DailyPlan, etc.)
 - ✅ DailyPlan.to_markdown() implementation
-- ✅ Basic unit tests
+- ✅ JIRA Client integration with authentication
+- ✅ Task Classifier with dependency detection
+- ✅ Plan Generator with priority selection
+- ✅ CLI Interface with environment-based configuration
+- ✅ Property-based tests for core functionality
 
 ### In Progress
-- 🚧 MVP Phase (Tasks 1-8)
+- 🚧 MVP Phase (Tasks 6-8)
 
 ### Planned
-- ⏳ JIRA Client integration
-- ⏳ Task Classifier
-- ⏳ Plan Generator
-- ⏳ CLI Interface
-- ⏳ Property-based tests
+- ⏳ Approval Manager
+- ⏳ Background Scheduler (Post-MVP)
+- ⏳ Long-running task decomposition (Post-MVP)
+- ⏳ Re-planning flow (Post-MVP)
 
 ## License
 
