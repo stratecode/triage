@@ -27,7 +27,7 @@ class JiraClient:
     Uses API token authentication for simplicity and security.
     """
     
-    def __init__(self, base_url: str, email: str, api_token: str):
+    def __init__(self, base_url: str, email: str, api_token: str, project: Optional[str] = None):
         """
         Initialize JIRA client with authentication credentials.
         
@@ -35,10 +35,12 @@ class JiraClient:
             base_url: JIRA instance URL (e.g., https://company.atlassian.net)
             email: User email for authentication
             api_token: API token generated from JIRA account settings
+            project: Optional project key to filter tasks (e.g., "PROJ")
         """
         self.base_url = base_url.rstrip('/')
         self.email = email
         self.api_token = api_token
+        self.project = project
         
         # Set up HTTP session with authentication headers
         self.session = requests.Session()
@@ -65,11 +67,48 @@ class JiraClient:
             JiraConnectionError: If JIRA is unavailable
             JiraAuthError: If authentication fails
         """
-        jql = "assignee = currentUser() AND resolution = Unresolved"
+        # Build JQL query with optional project filter
+        jql_parts = ["assignee = currentUser()", "resolution = Unresolved"]
+        
+        if self.project:
+            jql_parts.append(f"project = {self.project}")
+        
+        jql = " AND ".join(jql_parts)
+        
+        # Try API v3 first (Jira Cloud standard)
+        try:
+            return self._fetch_with_api_version(jql, api_version=3)
+        except JiraConnectionError as e:
+            # If we get a 410, try API v2 as fallback
+            if "410" in str(e):
+                try:
+                    return self._fetch_with_api_version(jql, api_version=2)
+                except Exception:
+                    # If v2 also fails, raise the original v3 error
+                    raise e
+            raise
+    
+    def _fetch_with_api_version(self, jql: str, api_version: int = 3) -> List[JiraIssue]:
+        """
+        Fetch tasks using specified API version.
+        
+        Args:
+            jql: JQL query string
+            api_version: JIRA API version (2 or 3)
+            
+        Returns:
+            List of JiraIssue objects
+        """
+        # API v3 uses /search/jql endpoint (new as of 2024)
+        # API v2 uses /search endpoint (legacy)
+        if api_version == 3:
+            endpoint = f"{self.base_url}/rest/api/3/search/jql"
+        else:
+            endpoint = f"{self.base_url}/rest/api/2/search"
         
         try:
             response = self.session.get(
-                f"{self.base_url}/rest/api/3/search",
+                endpoint,
                 params={
                     'jql': jql,
                     'maxResults': 100,
@@ -82,6 +121,15 @@ class JiraClient:
             if response.status_code == 401 or response.status_code == 403:
                 raise JiraAuthError(
                     f"Authentication failed: {response.status_code} - {response.text}"
+                )
+            
+            # Handle 410 Gone - API endpoint deprecated or resource deleted
+            if response.status_code == 410:
+                raise JiraConnectionError(
+                    f"JIRA API endpoint no longer available (410 Gone). "
+                    f"URL: {response.url}. "
+                    f"This may indicate an API version issue or deprecated endpoint. "
+                    f"Response: {response.text}"
                 )
             
             # Handle connection/server errors

@@ -39,6 +39,8 @@ uv pip install -e .
 
 ### Configuration
 
+The application automatically loads environment variables from a `.env` file in the project root.
+
 1. Copy the example environment file:
 ```bash
 cp .env.example .env
@@ -46,22 +48,37 @@ cp .env.example .env
 
 2. Edit `.env` and fill in your JIRA credentials:
 ```bash
+# Required
 JIRA_BASE_URL=https://your-company.atlassian.net
 JIRA_EMAIL=your-email@company.com
 JIRA_API_TOKEN=your-api-token
+
+# Optional: Filter by project
+JIRA_PROJECT=PROJ  # Only show tasks from this project (e.g., PROJ-123)
+
+# Optional: Admin block scheduling
+ADMIN_TIME_START=14:00
+ADMIN_TIME_END=15:30
 ```
 
 3. Generate a JIRA API token at: https://id.atlassian.com/manage-profile/security/api-tokens
+
+**Note**: The `.env` file is automatically loaded when you run any `ai-secretary` command. You don't need to manually source it or export variables.
+
+#### Project Filtering
+
+If you set `JIRA_PROJECT`, only tasks from that specific project will be included in your daily plans. This is useful if you work on multiple projects but want to focus on one at a time.
+
+Example:
+- `JIRA_PROJECT=IAOW` - Only shows tasks like IAOW-123, IAOW-456, etc.
+- Leave empty or unset to see tasks from all projects
 
 ## Usage
 
 ### Generate Daily Plan
 
 ```bash
-# Load environment variables
-source .env
-
-# Generate plan to stdout
+# Generate plan to stdout (automatically loads .env)
 ai-secretary generate-plan
 
 # Generate plan to file
@@ -70,6 +87,8 @@ ai-secretary generate-plan -o daily-plan.md
 # Generate plan with previous day's closure rate
 ai-secretary generate-plan --closure-rate 0.67
 ```
+
+**Note**: The application automatically loads your configuration from the `.env` file. No need to manually export environment variables.
 
 ### Example Output
 
@@ -97,6 +116,29 @@ ai-secretary generate-plan --closure-rate 0.67
 - [PROJ-129] Waiting on external team (blocked by dependencies)
 - [PROJ-130] Multi-day feature (decomposition needed)
 ```
+
+## Troubleshooting
+
+### JIRA Connection Issues
+
+If you encounter connection errors:
+
+1. **Run the diagnostic tool**:
+   ```bash
+   python examples/diagnose-jira-connection.py
+   ```
+
+2. **HTTP 410 Error**: This has been fixed in the latest version. The application now uses the new JIRA API endpoint (`/rest/api/3/search/jql`). See [docs/JIRA_API_MIGRATION.md](docs/JIRA_API_MIGRATION.md) for details.
+
+3. **Authentication Errors**: 
+   - Verify your JIRA_EMAIL is correct
+   - Ensure your JIRA_API_TOKEN is valid
+   - Generate a new token at: https://id.atlassian.com/manage-profile/security/api-tokens
+
+4. **Connection Timeout**:
+   - Check your internet connection
+   - Verify JIRA_BASE_URL is correct
+   - Ensure JIRA service is available
 
 ## Development
 
@@ -139,14 +181,14 @@ tests/                 # Test suite
 - ✅ JIRA Client integration with authentication
 - ✅ Task Classifier with dependency detection
 - ✅ Plan Generator with priority selection
-- ✅ CLI Interface with environment-based configuration
+- ✅ CLI Interface with automatic .env loading
+- ✅ Approval Manager (MVP)
 - ✅ Property-based tests for core functionality
 
 ### In Progress
-- 🚧 MVP Phase (Tasks 6-8)
+- 🚧 MVP Phase (Task 8: End-to-End Validation)
 
 ### Planned
-- ⏳ Approval Manager
 - ⏳ Background Scheduler (Post-MVP)
 - ⏳ Long-running task decomposition (Post-MVP)
 - ⏳ Re-planning flow (Post-MVP)

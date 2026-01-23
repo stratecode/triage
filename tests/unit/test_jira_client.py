@@ -42,6 +42,25 @@ class TestJiraClientInit:
         assert client.session.headers['Authorization'].startswith('Basic ')
         assert client.session.headers['Content-Type'] == 'application/json'
         assert client.session.headers['Accept'] == 'application/json'
+    
+    def test_init_sets_project_filter(self):
+        """Test that project filter is set when provided."""
+        client = JiraClient(
+            base_url="https://test.atlassian.net",
+            email="test@example.com",
+            api_token="test-token",
+            project="PROJ"
+        )
+        assert client.project == "PROJ"
+    
+    def test_init_project_filter_optional(self):
+        """Test that project filter is optional."""
+        client = JiraClient(
+            base_url="https://test.atlassian.net",
+            email="test@example.com",
+            api_token="test-token"
+        )
+        assert client.project is None
 
 
 class TestFetchActiveTasks:
@@ -136,3 +155,29 @@ class TestFetchActiveTasks:
         
         assert len(issues) == 0
         assert isinstance(issues, list)
+    
+    @patch('ai_secretary.jira_client.requests.Session.get')
+    def test_fetch_active_tasks_with_project_filter(self, mock_get):
+        """Test that project filter is included in JQL query."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {'issues': []}
+        mock_get.return_value = mock_response
+        
+        client = JiraClient(
+            base_url="https://test.atlassian.net",
+            email="test@example.com",
+            api_token="test-token",
+            project="MYPROJ"
+        )
+        
+        client.fetch_active_tasks()
+        
+        # Verify the JQL query includes the project filter
+        call_args = mock_get.call_args
+        params = call_args[1]['params']
+        jql = params['jql']
+        
+        assert 'project = MYPROJ' in jql
+        assert 'assignee = currentUser()' in jql
+        assert 'resolution = Unresolved' in jql

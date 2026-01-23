@@ -11,10 +11,14 @@ from pathlib import Path
 from typing import Optional
 
 import click
+from dotenv import load_dotenv
 
 from ai_secretary.jira_client import JiraClient, JiraConnectionError, JiraAuthError
 from ai_secretary.task_classifier import TaskClassifier
 from ai_secretary.plan_generator import PlanGenerator
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 class Config:
@@ -25,6 +29,7 @@ class Config:
         self.jira_base_url = os.environ.get('JIRA_BASE_URL', '')
         self.jira_email = os.environ.get('JIRA_EMAIL', '')
         self.jira_api_token = os.environ.get('JIRA_API_TOKEN', '')
+        self.jira_project = os.environ.get('JIRA_PROJECT', '')  # Optional project filter
         self.admin_time_start = os.environ.get('ADMIN_TIME_START', '14:00')
         self.admin_time_end = os.environ.get('ADMIN_TIME_END', '15:30')
     
@@ -85,6 +90,7 @@ def generate_plan(output: Optional[str], closure_rate: Optional[float]):
     
     \b
     Optional:
+      JIRA_PROJECT      - Filter tasks by project key (e.g., PROJ)
       ADMIN_TIME_START  - Admin block start time (default: 14:00)
       ADMIN_TIME_END    - Admin block end time (default: 15:30)
     
@@ -127,7 +133,8 @@ def generate_plan(output: Optional[str], closure_rate: Optional[float]):
         jira_client = JiraClient(
             base_url=config.jira_base_url,
             email=config.jira_email,
-            api_token=config.jira_api_token
+            api_token=config.jira_api_token,
+            project=config.jira_project if config.jira_project else None
         )
         
         classifier = TaskClassifier()
@@ -138,7 +145,10 @@ def generate_plan(output: Optional[str], closure_rate: Optional[float]):
         plan_generator.DEFAULT_ADMIN_TIME = admin_time
         
         # Generate plan
-        click.echo("Fetching and classifying tasks...", err=True)
+        if config.jira_project:
+            click.echo(f"Fetching and classifying tasks from project {config.jira_project}...", err=True)
+        else:
+            click.echo("Fetching and classifying tasks...", err=True)
         plan = plan_generator.generate_daily_plan(previous_closure_rate=closure_rate)
         
         # Format as markdown

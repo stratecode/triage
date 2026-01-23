@@ -49,6 +49,33 @@ class TestConfig:
             assert config.admin_time_start == '14:00'
             assert config.admin_time_end == '15:30'
     
+    def test_config_loads_from_dotenv_file(self):
+        """Test that Config loads values from .env file via dotenv."""
+        import tempfile
+        
+        # Create a temporary .env file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.env', delete=False) as f:
+            f.write('JIRA_BASE_URL=https://dotenv.atlassian.net\n')
+            f.write('JIRA_EMAIL=dotenv@example.com\n')
+            f.write('JIRA_API_TOKEN=dotenv-token\n')
+            env_file = f.name
+        
+        try:
+            # Load the .env file
+            from dotenv import load_dotenv
+            load_dotenv(env_file, override=True)
+            
+            # Create config
+            config = Config()
+            
+            # Verify values were loaded
+            assert config.jira_base_url == 'https://dotenv.atlassian.net'
+            assert config.jira_email == 'dotenv@example.com'
+            assert config.jira_api_token == 'dotenv-token'
+        finally:
+            # Clean up
+            os.unlink(env_file)
+    
     def test_validate_success_with_all_required_vars(self):
         """Test that validate returns True when all required vars are set."""
         with patch.dict(os.environ, {

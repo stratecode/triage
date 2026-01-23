@@ -157,11 +157,14 @@ class PlanGenerator:
             if c.category == TaskCategory.ADMINISTRATIVE
         ]
         
+        # Sort admin tasks by effort (smallest first) to maximize tasks that fit
+        admin_tasks_sorted = sorted(admin_tasks, key=lambda c: c.estimated_days)
+        
         # Calculate time allocation and limit to 90 minutes
         selected_tasks = []
         total_minutes = 0
         
-        for task in admin_tasks:
+        for task in admin_tasks_sorted:
             # Convert days to minutes (8 hours per day)
             task_minutes = task.estimated_days * 8 * 60
             
@@ -169,9 +172,7 @@ class PlanGenerator:
             if total_minutes + task_minutes <= self.MAX_ADMIN_MINUTES:
                 selected_tasks.append(task)
                 total_minutes += task_minutes
-            else:
-                # Stop adding tasks once we hit the limit
-                break
+            # If task doesn't fit, skip it and try the next one
         
         return AdminBlock(
             tasks=selected_tasks,

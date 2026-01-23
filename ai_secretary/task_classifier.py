@@ -140,14 +140,14 @@ class TaskClassifier:
         # Try story points first
         if issue.story_points is not None and issue.story_points > 0:
             estimated_days = issue.story_points * self.STORY_POINTS_TO_DAYS
-            # Conservative rounding: round up to nearest 0.5 day
+            # Conservative rounding for story points: round up to nearest 0.5 day, minimum 1 day
             return max(1.0, round(estimated_days * 2) / 2)
         
-        # Try time estimate
+        # Try time estimate (more precise, don't apply minimum)
         if issue.time_estimate is not None and issue.time_estimate > 0:
             estimated_days = issue.time_estimate / self.SECONDS_PER_DAY
-            # Conservative rounding: round up to nearest 0.5 day
-            return max(1.0, round(estimated_days * 2) / 2)
+            # Round to nearest 0.1 day for precision
+            return round(estimated_days * 10) / 10
         
         # No estimate available - use conservative default
         # Default to 1 day for tasks without estimates
