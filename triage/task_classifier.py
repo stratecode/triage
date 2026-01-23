@@ -4,6 +4,7 @@
 
 """Task classification logic for categorizing and analyzing JIRA tasks."""
 
+import logging
 from typing import List, Set
 
 from triage.models import (
@@ -11,6 +12,9 @@ from triage.models import (
     TaskClassification,
     TaskCategory,
 )
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 class TaskClassifier:
@@ -42,18 +46,27 @@ class TaskClassifier:
         Returns:
             TaskClassification with category, eligibility, and metadata
         """
+        logger.debug(f"Classifying task: {issue.key} - {issue.summary}")
+        
         # Check for dependencies
         has_dependencies = self.has_third_party_dependencies(issue)
+        if has_dependencies:
+            logger.debug(f"  Task {issue.key} has third-party dependencies")
         
         # Estimate effort
         estimated_days = self.estimate_effort_days(issue)
+        logger.debug(f"  Task {issue.key} estimated effort: {estimated_days} days")
         
         # Check if administrative
         is_admin = self.is_administrative(issue)
+        if is_admin:
+            logger.debug(f"  Task {issue.key} is administrative")
         
         # Check if blocking
         is_blocking = issue.priority.lower() == 'blocker'
         blocking_reason = "Marked as blocker priority" if is_blocking else None
+        if is_blocking:
+            logger.info(f"  Task {issue.key} is BLOCKING")
         
         # Determine category
         if is_blocking:
@@ -67,6 +80,8 @@ class TaskClassifier:
         else:
             category = TaskCategory.PRIORITY_ELIGIBLE
         
+        logger.debug(f"  Task {issue.key} category: {category.value}")
+        
         # Determine priority eligibility
         # A task is priority eligible if:
         # - No third-party dependencies
@@ -79,6 +94,9 @@ class TaskClassifier:
             and not is_admin
             and not is_blocking
         )
+        
+        if is_priority_eligible:
+            logger.debug(f"  Task {issue.key} is PRIORITY ELIGIBLE")
         
         return TaskClassification(
             task=issue,

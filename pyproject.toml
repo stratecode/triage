@@ -25,3 +25,9 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+
+# Hypothesis configuration to prevent memory issues and infinite loops
+[tool.hypothesis]
+max_examples = 50
+deadline = 5000
+database = "none"

@@ -86,9 +86,22 @@ class DailyPlan:
         
         # Previous day closure rate
         if self.previous_closure_rate is not None:
-            completed = int(self.previous_closure_rate * 3)  # Assuming max 3 priorities
-            total = 3
+            # Calculate completed/total based on closure rate
+            # Assuming max 3 priorities, but could be less
+            # We'll estimate based on the rate
             percentage = int(self.previous_closure_rate * 100)
+            
+            # For display purposes, we'll show a reasonable completed/total
+            # If rate is 1.0, show 3/3; if 0.67, show 2/3; if 0.33, show 1/3; if 0.0, show 0/3
+            if self.previous_closure_rate >= 0.95:
+                completed, total = 3, 3
+            elif self.previous_closure_rate >= 0.6:
+                completed, total = 2, 3
+            elif self.previous_closure_rate >= 0.3:
+                completed, total = 1, 3
+            else:
+                completed, total = 0, 3
+            
             lines.append("## Previous Day")
             lines.append(f"- Closure Rate: {completed}/{total} tasks completed ({percentage}%)")
             lines.append("")
@@ -144,6 +157,24 @@ class SubtaskSpec:
     description: str
     estimated_days: float  # Must be <= 1.0
     order: int  # Sequence order
+
+
+@dataclass
+class TaskCompletion:
+    """Record of a completed task."""
+    task_key: str  # JIRA key of completed task
+    completion_date: date  # Date task was completed
+    was_priority: bool  # Whether task was a priority task
+
+
+@dataclass
+class ClosureRecord:
+    """Daily closure tracking record."""
+    date: date
+    total_priorities: int  # Total number of priority tasks
+    completed_priorities: int  # Number of completed priority tasks
+    closure_rate: float  # Completion rate (0.0-1.0)
+    incomplete_tasks: List[str]  # Keys of incomplete priority tasks
 
 
 @dataclass

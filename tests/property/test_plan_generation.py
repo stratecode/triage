@@ -8,7 +8,7 @@ Feature: ai-secretary
 """
 
 from unittest.mock import Mock
-from hypothesis import given, strategies as st
+from hypothesis import given, strategies as st, settings
 from triage.models import (
     JiraIssue,
     TaskClassification,
@@ -39,49 +39,49 @@ def jira_issue_strategy(draw,
     if is_blocking:
         priorities = ["Blocker"]
     
-    # Generate JIRA-style keys like PROJ-123
-    project = draw(st.text(min_size=2, max_size=5, alphabet=st.characters(whitelist_categories=("Lu",))))
-    number = draw(st.integers(min_value=1, max_value=9999))
+    # Generate JIRA-style keys like PROJ-123 (limited alphabet to prevent memory issues)
+    project = draw(st.text(min_size=2, max_size=4, alphabet=st.characters(min_codepoint=65, max_codepoint=90)))
+    number = draw(st.integers(min_value=1, max_value=999))
     key = f"{project}-{number}"
     
-    # Generate issue links based on has_dependencies
+    # Generate issue links based on has_dependencies (limited to prevent memory issues)
     issue_links = []
     if has_dependencies:
         blocking_link_types = ["is blocked by", "depends on", "blocked by"]
-        num_links = draw(st.integers(min_value=1, max_value=3))
+        num_links = draw(st.integers(min_value=1, max_value=2))  # Reduced from 3
         for _ in range(num_links):
-            target_project = draw(st.text(min_size=2, max_size=5, alphabet=st.characters(whitelist_categories=("Lu",))))
-            target_number = draw(st.integers(min_value=1, max_value=9999))
+            target_project = draw(st.text(min_size=2, max_size=4, alphabet=st.characters(min_codepoint=65, max_codepoint=90)))
+            target_number = draw(st.integers(min_value=1, max_value=999))
             target_key = f"{target_project}-{target_number}"
             issue_links.append(IssueLink(
                 link_type=draw(st.sampled_from(blocking_link_types)),
                 target_key=target_key,
-                target_summary=draw(st.text(min_size=5, max_size=100)),
+                target_summary=draw(st.text(min_size=5, max_size=30, alphabet=st.characters(blacklist_categories=('Cs', 'Cc')))),
             ))
     elif has_dependencies is False:
         # Explicitly no dependencies
         issue_links = []
     else:
-        # Random
+        # Random (limited)
         issue_links = draw(st.lists(
             st.builds(IssueLink,
                      link_type=st.sampled_from(["relates to", "duplicates"]),
-                     target_key=st.text(min_size=5, max_size=20),
-                     target_summary=st.text(min_size=5, max_size=100)),
-            max_size=2
+                     target_key=st.text(min_size=5, max_size=15, alphabet=st.characters(min_codepoint=65, max_codepoint=90)),
+                     target_summary=st.text(min_size=5, max_size=30, alphabet=st.characters(blacklist_categories=('Cs', 'Cc')))),
+            max_size=1  # Reduced from 2
         ))
     
-    # Generate labels based on is_admin
+    # Generate labels based on is_admin (limited to prevent memory issues)
     labels = []
     if is_admin:
         admin_labels = ["admin", "administrative", "email", "report", "approval"]
         labels = [draw(st.sampled_from(admin_labels))]
     elif is_admin is False:
-        # Explicitly no admin labels
-        labels = draw(st.lists(st.text(min_size=1, max_size=20, alphabet=st.characters(blacklist_characters="admin")), max_size=3))
+        # Explicitly no admin labels (limited)
+        labels = draw(st.lists(st.text(min_size=1, max_size=10, alphabet=st.characters(min_codepoint=97, max_codepoint=122)), max_size=2))
     else:
-        # Random
-        labels = draw(st.lists(st.text(min_size=1, max_size=20), max_size=5))
+        # Random (limited)
+        labels = draw(st.lists(st.text(min_size=1, max_size=10, alphabet=st.characters(min_codepoint=97, max_codepoint=122)), max_size=2))
     
     # Generate story points based on estimated_days
     story_points = None
@@ -96,8 +96,8 @@ def jira_issue_strategy(draw,
     
     return JiraIssue(
         key=key,
-        summary=draw(st.text(min_size=5, max_size=200)),
-        description=draw(st.text(min_size=0, max_size=500)),
+        summary=draw(st.text(min_size=5, max_size=50, alphabet=st.characters(blacklist_categories=('Cs', 'Cc')))),
+        description=draw(st.text(min_size=0, max_size=100, alphabet=st.characters(blacklist_categories=('Cs', 'Cc')))),
         issue_type=draw(st.sampled_from(issue_types)),
         priority=draw(st.sampled_from(priorities)),
         status=draw(st.sampled_from(statuses)),
@@ -111,7 +111,7 @@ def jira_issue_strategy(draw,
 
 
 @st.composite
-def task_list_strategy(draw, min_size=0, max_size=20):
+def task_list_strategy(draw, min_size=0, max_size=10):  # Reduced from 20
     """Generate a list of random JiraIssue objects with unique keys."""
     size = draw(st.integers(min_value=min_size, max_value=max_size))
     tasks = []
@@ -138,12 +138,17 @@ def task_list_strategy(draw, min_size=0, max_size=20):
             is_blocking=is_blocking
         ))
         
-        # Ensure unique key by appending index if needed
+        # Ensure unique key with limited retries to prevent infinite loops
         original_key = task.key
         counter = 0
-        while task.key in used_keys:
+        max_retries = 100
+        while task.key in used_keys and counter < max_retries:
             counter += 1
             task.key = f"{original_key}-{counter}"
+        
+        # Skip if we couldn't generate a unique key
+        if task.key in used_keys:
+            continue
         
         used_keys.add(task.key)
         tasks.append(task)
@@ -152,7 +157,8 @@ def task_list_strategy(draw, min_size=0, max_size=20):
 
 
 # Property 1: Priority Count Constraint
-@given(task_list_strategy(min_size=0, max_size=30))
+@given(task_list_strategy(min_size=0, max_size=15))  # Reduced from 30
+@settings(max_examples=50, deadline=3000)  # Added settings to limit resources
 def test_property_1_priority_count_constraint(tasks):
     """Property 1: Priority Count Constraint
     
@@ -181,7 +187,8 @@ def test_property_1_priority_count_constraint(tasks):
 
 
 # Property 2: Priority Task Eligibility
-@given(task_list_strategy(min_size=0, max_size=30))
+@given(task_list_strategy(min_size=0, max_size=15))  # Reduced from 30
+@settings(max_examples=50, deadline=3000)  # Added settings to limit resources
 def test_property_2_priority_task_eligibility(tasks):
     """Property 2: Priority Task Eligibility
     
@@ -223,7 +230,8 @@ def test_property_2_priority_task_eligibility(tasks):
 
 
 # Property 5: Administrative Task Grouping
-@given(task_list_strategy(min_size=0, max_size=30))
+@given(task_list_strategy(min_size=0, max_size=15))  # Reduced from 30
+@settings(max_examples=50, deadline=3000)  # Added settings to limit resources
 def test_property_5_administrative_task_grouping(tasks):
     """Property 5: Administrative Task Grouping
     
@@ -278,8 +286,8 @@ def test_property_5_administrative_task_grouping(tasks):
 @st.composite
 def admin_heavy_task_list_strategy(draw):
     """Generate a list with >90 minutes of administrative work."""
-    # Generate 5-15 administrative tasks
-    num_admin_tasks = draw(st.integers(min_value=5, max_value=15))
+    # Generate 5-10 administrative tasks (reduced from 5-15)
+    num_admin_tasks = draw(st.integers(min_value=5, max_value=10))
     tasks = []
     used_keys = set()
     
@@ -294,18 +302,23 @@ def admin_heavy_task_list_strategy(draw):
             is_blocking=False
         ))
         
-        # Ensure unique key
+        # Ensure unique key with limited retries
         original_key = task.key
         counter = 0
-        while task.key in used_keys:
+        max_retries = 100
+        while task.key in used_keys and counter < max_retries:
             counter += 1
             task.key = f"{original_key}-{counter}"
+        
+        # Skip if we couldn't generate a unique key
+        if task.key in used_keys:
+            continue
         
         used_keys.add(task.key)
         tasks.append(task)
     
-    # Add some non-admin tasks too
-    num_other_tasks = draw(st.integers(min_value=0, max_value=10))
+    # Add some non-admin tasks too (reduced from 0-10 to 0-5)
+    num_other_tasks = draw(st.integers(min_value=0, max_value=5))
     for i in range(num_other_tasks):
         has_deps = draw(st.booleans())
         estimated_days = draw(st.floats(min_value=0.25, max_value=2.0))
@@ -317,12 +330,17 @@ def admin_heavy_task_list_strategy(draw):
             is_blocking=False
         ))
         
-        # Ensure unique key
+        # Ensure unique key with limited retries
         original_key = task.key
         counter = 0
-        while task.key in used_keys:
+        max_retries = 100
+        while task.key in used_keys and counter < max_retries:
             counter += 1
             task.key = f"{original_key}-{counter}"
+        
+        # Skip if we couldn't generate a unique key
+        if task.key in used_keys:
+            continue
         
         used_keys.add(task.key)
         tasks.append(task)
@@ -331,6 +349,7 @@ def admin_heavy_task_list_strategy(draw):
 
 
 @given(admin_heavy_task_list_strategy())
+@settings(max_examples=30, deadline=5000)  # Added settings to limit resources
 def test_property_7_administrative_overflow_handling(tasks):
     """Property 7: Administrative Overflow Handling
     

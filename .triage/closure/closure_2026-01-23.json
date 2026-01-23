@@ -1,0 +1,9 @@
+{
+  "date": "2026-01-23",
+  "total_priorities": 3,
+  "completed_priorities": 2,
+  "closure_rate": 0.6666666666666666,
+  "incomplete_tasks": [
+    "PROJ-103"
+  ]
+}
