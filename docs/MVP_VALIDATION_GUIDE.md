@@ -1,8 +1,8 @@
-# AI Secretary MVP End-to-End Validation Guide
+# TrIAge MVP End-to-End Validation Guide
 
 ## Overview
 
-This guide provides instructions for validating the AI Secretary MVP implementation against all requirements. The MVP is considered complete when all validation steps pass.
+This guide provides instructions for validating the TrIAge MVP implementation against all requirements. The MVP is considered complete when all validation steps pass.
 
 ## Prerequisites
 
@@ -37,13 +37,13 @@ Test the CLI interface directly:
 
 ```bash
 # Generate plan to stdout
-ai-secretary generate-plan
+triage generate-plan
 
 # Generate plan to file
-ai-secretary generate-plan -o daily-plan.md
+triage generate-plan -o daily-plan.md
 
 # Generate plan with previous closure rate
-ai-secretary generate-plan --closure-rate 0.67
+triage generate-plan --closure-rate 0.67
 ```
 
 ### Method 3: Interactive Python Testing

@@ -7,8 +7,8 @@
 from unittest.mock import patch
 from datetime import date
 
-from ai_secretary.approval_manager import ApprovalManager
-from ai_secretary.models import (
+from triage.approval_manager import ApprovalManager
+from triage.models import (
     DailyPlan,
     AdminBlock,
     TaskClassification,

@@ -6,7 +6,7 @@
 
 import markdown
 from datetime import date
-from ai_secretary.models import (
+from triage.models import (
     JiraIssue,
     TaskClassification,
     TaskCategory,

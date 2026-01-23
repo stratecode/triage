@@ -13,9 +13,9 @@ from typing import Optional
 import click
 from dotenv import load_dotenv
 
-from ai_secretary.jira_client import JiraClient, JiraConnectionError, JiraAuthError
-from ai_secretary.task_classifier import TaskClassifier
-from ai_secretary.plan_generator import PlanGenerator
+from triage.jira_client import JiraClient, JiraConnectionError, JiraAuthError
+from triage.task_classifier import TaskClassifier
+from triage.plan_generator import PlanGenerator
 
 # Load environment variables from .env file
 load_dotenv()
@@ -55,7 +55,7 @@ class Config:
 @click.group()
 @click.version_option(version='0.1.0')
 def cli():
-    """AI Secretary - Execution support system for senior technical professionals.
+    """TrIAge - Execution support system for senior technical professionals.
     
     Generate focused daily plans with up to 3 priorities from your JIRA tasks.
     """
@@ -98,15 +98,15 @@ def generate_plan(output: Optional[str], closure_rate: Optional[float]):
     
     \b
       # Generate plan to stdout
-      $ ai-secretary generate-plan
+      $ triage generate-plan
     
     \b
       # Generate plan to file
-      $ ai-secretary generate-plan -o daily-plan.md
+      $ triage generate-plan -o daily-plan.md
     
     \b
       # Generate plan with previous day's closure rate
-      $ ai-secretary generate-plan --closure-rate 0.67
+      $ triage generate-plan --closure-rate 0.67
     """
     # Load configuration
     config = Config()

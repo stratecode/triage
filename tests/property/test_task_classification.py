@@ -8,13 +8,13 @@ Feature: ai-secretary
 """
 
 from hypothesis import given, strategies as st
-from ai_secretary.models import (
+from triage.models import (
     JiraIssue,
     TaskClassification,
     TaskCategory,
     IssueLink,
 )
-from ai_secretary.task_classifier import TaskClassifier
+from triage.task_classifier import TaskClassifier
 
 
 # Custom strategies for generating test data

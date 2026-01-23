@@ -9,14 +9,14 @@ Feature: ai-secretary
 
 from unittest.mock import Mock
 from hypothesis import given, strategies as st
-from ai_secretary.models import (
+from triage.models import (
     JiraIssue,
     TaskClassification,
     TaskCategory,
     IssueLink,
 )
-from ai_secretary.task_classifier import TaskClassifier
-from ai_secretary.plan_generator import PlanGenerator
+from triage.task_classifier import TaskClassifier
+from triage.plan_generator import PlanGenerator
 
 
 # Custom strategies for generating test data

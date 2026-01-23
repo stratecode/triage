@@ -10,7 +10,7 @@ Feature: ai-secretary
 import markdown
 from datetime import date
 from hypothesis import given, strategies as st
-from ai_secretary.models import (
+from triage.models import (
     JiraIssue,
     TaskClassification,
     TaskCategory,

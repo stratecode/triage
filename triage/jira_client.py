@@ -8,7 +8,7 @@ import base64
 from typing import List, Optional
 import requests
 
-from ai_secretary.models import JiraIssue, IssueLink
+from triage.models import JiraIssue, IssueLink
 
 
 class JiraConnectionError(Exception):

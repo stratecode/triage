@@ -6,7 +6,7 @@
 """
 MVP End-to-End Validation Script
 
-This script performs a comprehensive validation of the AI Secretary MVP by:
+This script performs a comprehensive validation of the TrIAge MVP by:
 1. Fetching tasks from JIRA
 2. Generating a daily plan
 3. Validating plan correctness against requirements
@@ -25,11 +25,11 @@ from typing import List, Tuple
 
 from dotenv import load_dotenv
 
-from ai_secretary.jira_client import JiraClient, JiraConnectionError, JiraAuthError
-from ai_secretary.task_classifier import TaskClassifier
-from ai_secretary.plan_generator import PlanGenerator
-from ai_secretary.approval_manager import ApprovalManager
-from ai_secretary.models import DailyPlan, TaskClassification, TaskCategory
+from triage.jira_client import JiraClient, JiraConnectionError, JiraAuthError
+from triage.task_classifier import TaskClassifier
+from triage.plan_generator import PlanGenerator
+from triage.approval_manager import ApprovalManager
+from triage.models import DailyPlan, TaskClassification, TaskCategory
 
 
 # Load environment variables
@@ -457,7 +457,7 @@ def main():
         print("\n" + "=" * 80)
         print("✓ MVP END-TO-END VALIDATION COMPLETE")
         print("=" * 80)
-        print("\nThe AI Secretary MVP is working correctly!")
+        print("\nThe TrIAge MVP is working correctly!")
         print("\nKey Achievements:")
         print("  ✓ JIRA integration working")
         print("  ✓ Task classification accurate")

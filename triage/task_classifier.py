@@ -6,7 +6,7 @@
 
 from typing import List, Set
 
-from ai_secretary.models import (
+from triage.models import (
     JiraIssue,
     TaskClassification,
     TaskCategory,

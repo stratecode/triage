@@ -11,8 +11,8 @@ from datetime import date
 import pytest
 from click.testing import CliRunner
 
-from ai_secretary.cli import cli, Config
-from ai_secretary.models import (
+from triage.cli import cli, Config
+from triage.models import (
     DailyPlan,
     AdminBlock,
     TaskClassification,
@@ -143,7 +143,7 @@ class TestCLI:
         result = runner.invoke(cli, ['--help'])
         
         assert result.exit_code == 0
-        assert 'AI Secretary' in result.output
+        assert 'TrIAge' in result.output
         assert 'generate-plan' in result.output
     
     def test_generate_plan_shows_help(self):
@@ -186,9 +186,9 @@ class TestCLI:
             assert result.exit_code == 1
             assert 'between 0.0 and 1.0' in result.output
     
-    @patch('ai_secretary.cli.PlanGenerator')
-    @patch('ai_secretary.cli.TaskClassifier')
-    @patch('ai_secretary.cli.JiraClient')
+    @patch('triage.cli.PlanGenerator')
+    @patch('triage.cli.TaskClassifier')
+    @patch('triage.cli.JiraClient')
     def test_generate_plan_outputs_to_stdout(self, mock_jira, mock_classifier, mock_generator):
         """Test that generate-plan outputs markdown to stdout."""
         runner = CliRunner()
@@ -236,9 +236,9 @@ class TestCLI:
             assert 'TEST-1' in result.output
             assert 'Test task' in result.output
     
-    @patch('ai_secretary.cli.PlanGenerator')
-    @patch('ai_secretary.cli.TaskClassifier')
-    @patch('ai_secretary.cli.JiraClient')
+    @patch('triage.cli.PlanGenerator')
+    @patch('triage.cli.TaskClassifier')
+    @patch('triage.cli.JiraClient')
     def test_generate_plan_outputs_to_file(self, mock_jira, mock_classifier, mock_generator):
         """Test that generate-plan outputs markdown to file."""
         runner = CliRunner()
@@ -291,9 +291,9 @@ class TestCLI:
                     assert '# Daily Plan - 2026-01-23' in content
                     assert 'TEST-1' in content
     
-    @patch('ai_secretary.cli.PlanGenerator')
-    @patch('ai_secretary.cli.TaskClassifier')
-    @patch('ai_secretary.cli.JiraClient')
+    @patch('triage.cli.PlanGenerator')
+    @patch('triage.cli.TaskClassifier')
+    @patch('triage.cli.JiraClient')
     def test_generate_plan_passes_closure_rate(self, mock_jira, mock_classifier, mock_generator):
         """Test that generate-plan passes closure rate to plan generator."""
         runner = CliRunner()

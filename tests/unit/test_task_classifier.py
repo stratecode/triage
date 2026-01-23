@@ -5,8 +5,8 @@
 """Unit tests for TaskClassifier."""
 
 import pytest
-from ai_secretary.models import JiraIssue, IssueLink, TaskCategory
-from ai_secretary.task_classifier import TaskClassifier
+from triage.models import JiraIssue, IssueLink, TaskCategory
+from triage.task_classifier import TaskClassifier
 
 
 class TestTaskClassifier:
@@ -230,8 +230,8 @@ class TestTaskClassifier:
         classifier = TaskClassifier()
         estimated_days = classifier.estimate_effort_days(issue)
         
-        # 4 hours = 0.5 days, but conservative default is 1.0
-        assert estimated_days == 1.0
+        # 4 hours = 0.5 days (time estimates are precise, not rounded to 1.0)
+        assert estimated_days == 0.5
     
     def test_estimate_effort_days_default(self):
         """Test effort estimation with no estimates (conservative default)."""

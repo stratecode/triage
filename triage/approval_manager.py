@@ -6,7 +6,7 @@
 
 from typing import Optional
 
-from ai_secretary.models import DailyPlan, ApprovalResult
+from triage.models import DailyPlan, ApprovalResult
 
 
 class ApprovalManager:

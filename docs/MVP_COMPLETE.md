@@ -1,8 +1,8 @@
-# 🎉 AI Secretary MVP Complete!
+# 🎉 TrIAge MVP Complete!
 
 ## Status: ✓ VALIDATED AND READY FOR USE
 
-The AI Secretary MVP has been successfully implemented and validated. All core functionality is working correctly, and the system is ready for daily use.
+The TrIAge MVP has been successfully implemented and validated. All core functionality is working correctly, and the system is ready for daily use.
 
 ## What Was Validated
 
@@ -28,13 +28,13 @@ The AI Secretary MVP has been successfully implemented and validated. All core f
 
 ```bash
 # Generate a daily plan
-ai-secretary generate-plan
+triage generate-plan
 
 # Save plan to file
-ai-secretary generate-plan -o daily-plan.md
+triage generate-plan -o daily-plan.md
 
 # Include previous day's closure rate
-ai-secretary generate-plan --closure-rate 0.67
+triage generate-plan --closure-rate 0.67
 ```
 
 ### Configuration
@@ -98,7 +98,7 @@ ADMIN_TIME_END=15:30    # Optional: admin block end
 
 - **Automated Demo**: `python run_demo_auto.py`
 - **Real JIRA Validation**: `python validate_mvp.py`
-- **CLI Testing**: `ai-secretary generate-plan`
+- **CLI Testing**: `triage generate-plan`
 
 ## What's Included
 
@@ -148,7 +148,7 @@ The MVP is successful when:
 ### 1. Daily Usage
 Start using the system for real work:
 ```bash
-ai-secretary generate-plan
+triage generate-plan
 ```
 
 ### 2. Gather Feedback
@@ -204,7 +204,7 @@ If you have no tasks in JIRA:
 
 ## Conclusion
 
-🎉 **The AI Secretary MVP is complete and validated!**
+🎉 **The TrIAge MVP is complete and validated!**
 
 The system successfully:
 - Reduces cognitive load through focused daily plans

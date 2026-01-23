@@ -7,9 +7,9 @@
 from datetime import date, datetime
 from typing import List, Optional
 
-from ai_secretary.jira_client import JiraClient
-from ai_secretary.task_classifier import TaskClassifier
-from ai_secretary.models import (
+from triage.jira_client import JiraClient
+from triage.task_classifier import TaskClassifier
+from triage.models import (
     DailyPlan,
     AdminBlock,
     TaskClassification,

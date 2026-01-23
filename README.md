@@ -1,10 +1,10 @@
-# AI Secretary
+# TrIAge
 
 Execution support system for senior technical professionals working in high-interruption, multi-project environments.
 
 ## Overview
 
-The AI Secretary reduces cognitive load by generating focused daily plans with a maximum of 3 real priorities. It treats JIRA as the single source of truth and operates asynchronously to generate actionable daily plans.
+TrIAge reduces cognitive load by generating focused daily plans with a maximum of 3 real priorities. It treats JIRA as the single source of truth and operates asynchronously to generate actionable daily plans.
 
 ## Core Principles
 
@@ -63,7 +63,7 @@ ADMIN_TIME_END=15:30
 
 3. Generate a JIRA API token at: https://id.atlassian.com/manage-profile/security/api-tokens
 
-**Note**: The `.env` file is automatically loaded when you run any `ai-secretary` command. You don't need to manually source it or export variables.
+**Note**: The `.env` file is automatically loaded when you run any `triage` command. You don't need to manually source it or export variables.
 
 #### Project Filtering
 
@@ -79,13 +79,13 @@ Example:
 
 ```bash
 # Generate plan to stdout (automatically loads .env)
-ai-secretary generate-plan
+triage generate-plan
 
 # Generate plan to file
-ai-secretary generate-plan -o daily-plan.md
+triage generate-plan -o daily-plan.md
 
 # Generate plan with previous day's closure rate
-ai-secretary generate-plan --closure-rate 0.67
+triage generate-plan --closure-rate 0.67
 ```
 
 **Note**: The application automatically loads your configuration from the `.env` file. No need to manually export environment variables.
@@ -149,7 +149,7 @@ If you encounter connection errors:
 uv run pytest
 
 # Run with coverage
-uv run pytest --cov=ai_secretary
+uv run pytest --cov=triage
 
 # Run specific test file
 uv run pytest tests/unit/test_models.py -v
@@ -158,17 +158,18 @@ uv run pytest tests/unit/test_models.py -v
 ### Project Structure
 
 ```
-ai_secretary/           # Main package
+triage/                # Main package
 ├── __init__.py
 ├── models.py          # Core data models
-├── jira_client.py     # JIRA REST API integration (to be implemented)
-├── task_classifier.py # Task categorization logic (to be implemented)
-├── plan_generator.py  # Daily plan generation (to be implemented)
-└── cli.py            # Command-line interface (to be implemented)
+├── jira_client.py     # JIRA REST API integration
+├── task_classifier.py # Task categorization logic
+├── plan_generator.py  # Daily plan generation
+├── approval_manager.py # User approval workflows
+└── cli.py            # Command-line interface
 
 tests/                 # Test suite
 ├── unit/             # Unit tests
-├── property/         # Property-based tests (to be implemented)
+├── property/         # Property-based tests
 └── integration/      # Integration tests (to be implemented)
 ```
 

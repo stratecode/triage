@@ -6,8 +6,8 @@
 
 import pytest
 from unittest.mock import Mock, patch
-from ai_secretary.jira_client import JiraClient, JiraConnectionError, JiraAuthError
-from ai_secretary.models import JiraIssue
+from triage.jira_client import JiraClient, JiraConnectionError, JiraAuthError
+from triage.models import JiraIssue
 
 
 class TestJiraClientInit:
@@ -66,7 +66,7 @@ class TestJiraClientInit:
 class TestFetchActiveTasks:
     """Tests for fetch_active_tasks method."""
     
-    @patch('ai_secretary.jira_client.requests.Session.get')
+    @patch('triage.jira_client.requests.Session.get')
     def test_fetch_active_tasks_success(self, mock_get):
         """Test successful task fetching."""
         # Mock response
@@ -105,7 +105,7 @@ class TestFetchActiveTasks:
         assert issues[0].summary == 'Test task'
         assert issues[0].priority == 'High'
     
-    @patch('ai_secretary.jira_client.requests.Session.get')
+    @patch('triage.jira_client.requests.Session.get')
     def test_fetch_active_tasks_auth_error(self, mock_get):
         """Test authentication error handling."""
         mock_response = Mock()
@@ -122,7 +122,7 @@ class TestFetchActiveTasks:
         with pytest.raises(JiraAuthError):
             client.fetch_active_tasks()
     
-    @patch('ai_secretary.jira_client.requests.Session.get')
+    @patch('triage.jira_client.requests.Session.get')
     def test_fetch_active_tasks_connection_error(self, mock_get):
         """Test connection error handling."""
         import requests
@@ -137,7 +137,7 @@ class TestFetchActiveTasks:
         with pytest.raises(JiraConnectionError):
             client.fetch_active_tasks()
     
-    @patch('ai_secretary.jira_client.requests.Session.get')
+    @patch('triage.jira_client.requests.Session.get')
     def test_fetch_active_tasks_empty_response(self, mock_get):
         """Test handling of empty task list."""
         mock_response = Mock()
@@ -156,7 +156,7 @@ class TestFetchActiveTasks:
         assert len(issues) == 0
         assert isinstance(issues, list)
     
-    @patch('ai_secretary.jira_client.requests.Session.get')
+    @patch('triage.jira_client.requests.Session.get')
     def test_fetch_active_tasks_with_project_filter(self, mock_get):
         """Test that project filter is included in JQL query."""
         mock_response = Mock()

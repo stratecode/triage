@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 from hypothesis import given, strategies as st
 from datetime import date
 
-from ai_secretary.models import (
+from triage.models import (
     DailyPlan,
     AdminBlock,
     TaskClassification,
@@ -19,7 +19,7 @@ from ai_secretary.models import (
     JiraIssue,
     ApprovalResult,
 )
-from ai_secretary.approval_manager import ApprovalManager
+from triage.approval_manager import ApprovalManager
 
 
 # Custom strategies for generating test data

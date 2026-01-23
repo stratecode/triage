@@ -7,9 +7,9 @@
 from unittest.mock import Mock
 from datetime import date
 
-from ai_secretary.models import JiraIssue, TaskCategory
-from ai_secretary.task_classifier import TaskClassifier
-from ai_secretary.plan_generator import PlanGenerator
+from triage.models import JiraIssue, TaskCategory
+from triage.task_classifier import TaskClassifier
+from triage.plan_generator import PlanGenerator
 
 
 class TestPlanGenerator:

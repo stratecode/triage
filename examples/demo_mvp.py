@@ -6,7 +6,7 @@
 """
 MVP Demonstration Script
 
-This script demonstrates the complete AI Secretary MVP workflow using mock data.
+This script demonstrates the complete TrIAge MVP workflow using mock data.
 It shows the end-to-end flow: fetch tasks → classify → generate plan → approve.
 
 This is useful for:
@@ -18,7 +18,7 @@ This is useful for:
 from datetime import date
 from typing import List
 
-from ai_secretary.models import (
+from triage.models import (
     JiraIssue,
     IssueLink,
     TaskClassification,
@@ -27,8 +27,8 @@ from ai_secretary.models import (
     AdminBlock,
     ApprovalResult,
 )
-from ai_secretary.task_classifier import TaskClassifier
-from ai_secretary.plan_generator import PlanGenerator
+from triage.task_classifier import TaskClassifier
+from triage.plan_generator import PlanGenerator
 
 
 def create_mock_tasks() -> List[JiraIssue]:
@@ -362,7 +362,7 @@ def main():
     print()
     print("Next Steps:")
     print("  1. Test with real JIRA data: python validate_mvp.py")
-    print("  2. Use CLI for daily planning: ai-secretary generate-plan")
+    print("  2. Use CLI for daily planning: triage generate-plan")
     print("  3. Review MVP_VALIDATION_GUIDE.md for detailed testing")
 
 
