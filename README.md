@@ -153,4 +153,6 @@ tests/                 # Test suite
 
 ## License
 
-TBD
+TrIAge is licensed under the GNU Affero General Public License v3 (AGPLv3).
+
+Commercial licensing options may be available in the future.

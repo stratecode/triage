@@ -1,3 +1,7 @@
+# TrIAge
+# Copyright (C) 2026 StrateCode
+# Licensed under the GNU Affero General Public License v3 (AGPLv3)
+
 """Core data models for the AI Secretary system."""
 
 from dataclasses import dataclass, field

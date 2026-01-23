@@ -1,3 +1,7 @@
+# TrIAge
+# Copyright (C) 2026 StrateCode
+# Licensed under the GNU Affero General Public License v3 (AGPLv3)
+
 """JIRA REST API client for fetching and managing tasks."""
 
 import base64

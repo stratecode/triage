@@ -1,3 +1,7 @@
+# TrIAge
+# Copyright (C) 2026 StrateCode
+# Licensed under the GNU Affero General Public License v3 (AGPLv3)
+
 """Task classification logic for categorizing and analyzing JIRA tasks."""
 
 from typing import List, Set
