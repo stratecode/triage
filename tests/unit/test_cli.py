@@ -152,8 +152,8 @@ class TestCLI:
         result = runner.invoke(cli, ['generate-plan', '--help'])
         
         assert result.exit_code == 0
-        # Check for Spanish text since CLI is now in Spanish
-        assert 'Generar un plan diario' in result.output or 'Generate a daily plan' in result.output
+        # Check for English text since CLI is now in English
+        assert 'Generate a daily plan' in result.output
         assert 'JIRA_BASE_URL' in result.output
         assert '--output' in result.output
         assert '--closure-rate' in result.output
@@ -180,13 +180,13 @@ class TestCLI:
             # Test invalid closure rate > 1.0
             result = runner.invoke(cli, ['generate-plan', '--closure-rate', '1.5'])
             assert result.exit_code == 1
-            # Check for Spanish or English text
-            assert ('entre 0.0 y 1.0' in result.output or 'between 0.0 and 1.0' in result.output)
+            # Check for English text
+            assert 'between 0.0 and 1.0' in result.output
             
             # Test invalid closure rate < 0.0
             result = runner.invoke(cli, ['generate-plan', '--closure-rate', '-0.5'])
             assert result.exit_code == 1
-            assert ('entre 0.0 y 1.0' in result.output or 'between 0.0 and 1.0' in result.output)
+            assert 'between 0.0 and 1.0' in result.output
     
     @patch('triage.cli.PlanGenerator')
     @patch('triage.cli.TaskClassifier')

@@ -71,6 +71,7 @@ class DailyPlan:
     admin_block: AdminBlock
     other_tasks: List[TaskClassification]  # Non-priority tasks for reference
     previous_closure_rate: Optional[float] = None  # Previous day's closure rate
+    decomposition_suggestions: List[TaskClassification] = field(default_factory=list)  # Tasks that should be decomposed
     
     def to_markdown(self) -> str:
         """Format plan as structured markdown.
@@ -122,6 +123,26 @@ class DailyPlan:
                 lines.append(f"   - Type: {task.issue_type}")
                 if task.priority:
                     lines.append(f"   - Priority: {task.priority}")
+                if task.status:
+                    lines.append(f"   - Status: {task.status}")
+                lines.append("")
+        
+        # Decomposition suggestions
+        if self.decomposition_suggestions:
+            lines.append("## ⚠️ Tasks Requiring Decomposition")
+            lines.append("")
+            lines.append("The following tasks are too large to complete in one day.")
+            lines.append("Consider breaking them into smaller subtasks:")
+            lines.append("")
+            for classification in self.decomposition_suggestions:
+                task = classification.task
+                effort_days = classification.estimated_days
+                lines.append(f"- **[{task.key}] {task.summary}**")
+                lines.append(f"  - Current estimate: {effort_days:.1f} days")
+                if task.story_points:
+                    lines.append(f"  - Story points: {task.story_points} SP")
+                lines.append(f"  - Suggestion: Break into {int(effort_days) + 1} daily-closable subtasks")
+                lines.append(f"  - Command: `triage decompose {task.key}`")
                 lines.append("")
         
         # Administrative block
@@ -142,8 +163,8 @@ class DailyPlan:
                 status_note = ""
                 if classification.has_dependencies:
                     status_note = " (blocked by dependencies)"
-                elif classification.category == TaskCategory.LONG_RUNNING:
-                    status_note = " (decomposition needed)"
+                elif classification.category == TaskCategory.BLOCKING:
+                    status_note = " (blocker priority)"
                 lines.append(f"- [{task.key}] {task.summary}{status_note}")
             lines.append("")
         

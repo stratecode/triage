@@ -104,12 +104,13 @@ class PlanGenerator:
     
     def _rank_tasks(self, tasks: List[TaskClassification]) -> List[TaskClassification]:
         """
-        Rank tasks by priority, effort, and age.
+        Rank tasks by status, priority, effort, and age.
         
         Ranking criteria (in order):
-        1. Priority (Blocker > High > Medium > Low)
-        2. Effort (smaller first)
-        3. Age (older first - using key as proxy)
+        1. Status (In Progress first - should be completed)
+        2. Priority (Blocker > High > Medium > Low)
+        3. Effort (smaller first)
+        4. Age (older first - using key as proxy)
         
         Args:
             tasks: List of tasks to rank
@@ -130,6 +131,9 @@ class PlanGenerator:
         def sort_key(classification: TaskClassification):
             task = classification.task
             
+            # Prioritize tasks already in progress (should be completed first)
+            status_rank = 0 if task.status.lower() == 'in progress' else 1
+            
             # Get priority rank (lower is higher priority)
             priority_rank = priority_order.get(task.priority.lower(), 3)
             
@@ -147,7 +151,7 @@ class PlanGenerator:
             except (ValueError, IndexError):
                 age_proxy = 0
             
-            return (priority_rank, effort, age_proxy)
+            return (status_rank, priority_rank, effort, age_proxy)
         
         return sorted(tasks, key=sort_key)
     
@@ -228,6 +232,16 @@ class PlanGenerator:
         ]
         logger.info(f"Classified {len(classifications)} tasks")
         
+        # Identify tasks that need decomposition (long-running tasks)
+        decomposition_suggestions = [
+            c for c in classifications
+            if c.category == TaskCategory.LONG_RUNNING
+        ]
+        if decomposition_suggestions:
+            logger.info(f"Found {len(decomposition_suggestions)} tasks requiring decomposition")
+            for c in decomposition_suggestions:
+                logger.info(f"  {c.task.key}: {c.estimated_days:.1f} days - {c.task.summary}")
+        
         # Filter eligible tasks for priority selection
         eligible_tasks = self._filter_eligible_tasks(classifications)
         logger.info(f"Found {len(eligible_tasks)} priority-eligible tasks")
@@ -246,13 +260,16 @@ class PlanGenerator:
         admin_block = self._group_admin_tasks(classifications)
         logger.info(f"Grouped {len(admin_block.tasks)} administrative tasks ({admin_block.time_allocation_minutes} minutes)")
         
-        # Collect other tasks for reference (non-priority, non-admin)
+        # Collect other tasks for reference (non-priority, non-admin, non-decomposition-suggestions)
         priority_keys = {c.task.key for c in priorities}
         admin_keys = {c.task.key for c in admin_block.tasks}
+        decomposition_keys = {c.task.key for c in decomposition_suggestions}
         
         other_tasks = [
             c for c in classifications
-            if c.task.key not in priority_keys and c.task.key not in admin_keys
+            if c.task.key not in priority_keys 
+            and c.task.key not in admin_keys
+            and c.task.key not in decomposition_keys
         ]
         logger.info(f"Identified {len(other_tasks)} other tasks for reference")
         
@@ -268,7 +285,8 @@ class PlanGenerator:
             priorities=priorities,
             admin_block=admin_block,
             other_tasks=other_tasks,
-            previous_closure_rate=previous_closure_rate
+            previous_closure_rate=previous_closure_rate,
+            decomposition_suggestions=decomposition_suggestions
         )
         
         logger.info(f"Daily plan generated successfully for {plan.date}")

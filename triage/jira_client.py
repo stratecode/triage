@@ -254,6 +254,9 @@ class JiraClient:
         """
         Fetch all unresolved tasks assigned to current user.
         
+        Includes tasks in any state except completed (Done, Closed, Resolved).
+        This includes "To Do", "In Progress", "Blocked", "Waiting", etc.
+        
         Returns:
             List of JiraIssue objects with full metadata
             
@@ -264,7 +267,12 @@ class JiraClient:
         logger.info("Fetching active tasks from JIRA")
         
         # Build JQL query with optional project filter
-        jql_parts = ["assignee = currentUser()", "resolution = Unresolved"]
+        # Only exclude completed tasks
+        jql_parts = [
+            "assignee = currentUser()",
+            "resolution = Unresolved",
+            'status NOT IN ("Done", "Closed", "Resolved", "Complete")'
+        ]
         
         if self.project:
             jql_parts.append(f"project = {self.project}")

@@ -29,9 +29,10 @@ class TaskClassifier:
     # Dependency link types that indicate third-party blocking
     BLOCKING_LINK_TYPES = {'is blocked by', 'depends on', 'blocked by'}
     
-    # Story points to days conversion (assuming 8 story points = 1 sprint = 2 weeks = 10 days)
-    # Conservative estimate: 1 story point = ~1.25 days
-    STORY_POINTS_TO_DAYS = 1.25
+    # Story points to days conversion
+    # Standard Scrum: 1 story point = ~0.5 days (4 hours) for a senior developer
+    # This allows 1-2 story point tasks to be daily-closable
+    STORY_POINTS_TO_DAYS = 0.5
     
     # Seconds in a working day (8 hours)
     SECONDS_PER_DAY = 8 * 60 * 60
@@ -148,9 +149,8 @@ class TaskClassifier:
         Estimate effort in working days.
         
         Uses story points (if available) or time tracking estimates.
-        When estimates are ambiguous or derived from story points, the system must use
-        a conservative default (≥ 1 day) and treat the task as non-priority eligible
-        unless explicitly confirmed otherwise.
+        Story points conversion: 1 SP = 0.5 days (4 hours)
+        This allows 1-2 SP tasks to be daily-closable.
         
         Returns:
             Estimated effort in days
@@ -158,18 +158,18 @@ class TaskClassifier:
         # Try story points first
         if issue.story_points is not None and issue.story_points > 0:
             estimated_days = issue.story_points * self.STORY_POINTS_TO_DAYS
-            # Conservative rounding for story points: round up to nearest 0.5 day, minimum 1 day
-            return max(1.0, round(estimated_days * 2) / 2)
+            # Round to nearest 0.5 day for story points
+            return round(estimated_days * 2) / 2
         
-        # Try time estimate (more precise, don't apply minimum)
+        # Try time estimate (more precise)
         if issue.time_estimate is not None and issue.time_estimate > 0:
             estimated_days = issue.time_estimate / self.SECONDS_PER_DAY
             # Round to nearest 0.1 day for precision
             return round(estimated_days * 10) / 10
         
         # No estimate available - use conservative default
-        # Default to 1 day for tasks without estimates
-        return 1.0
+        # Default to 0.5 days for tasks without estimates (benefit of the doubt)
+        return 0.5
     
     def is_administrative(self, issue: JiraIssue) -> bool:
         """

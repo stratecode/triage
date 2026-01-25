@@ -36,8 +36,8 @@ class TestTaskClassifier:
         assert classification.category == TaskCategory.PRIORITY_ELIGIBLE
         assert classification.is_priority_eligible is True
         assert classification.has_dependencies is False
-        # 1 story point * 1.25 = 1.25, rounded to nearest 0.5 = 1.0 (but min is 1.0)
-        assert classification.estimated_days == 1.0
+        # 1 story point * 0.5 = 0.5 days
+        assert classification.estimated_days == 0.5
     
     def test_classify_task_with_blocking_link(self):
         """Test classification of a task with blocking dependencies."""
@@ -207,8 +207,8 @@ class TestTaskClassifier:
         classifier = TaskClassifier()
         estimated_days = classifier.estimate_effort_days(issue)
         
-        # 2 story points * 1.25 = 2.5 days, rounded to nearest 0.5 = 2.5
-        assert estimated_days == 2.5
+        # 2 story points * 0.5 = 1.0 day
+        assert estimated_days == 1.0
     
     def test_estimate_effort_days_with_time_estimate(self):
         """Test effort estimation using time estimate."""
@@ -234,7 +234,7 @@ class TestTaskClassifier:
         assert estimated_days == 0.5
     
     def test_estimate_effort_days_default(self):
-        """Test effort estimation with no estimates (conservative default)."""
+        """Test effort estimation with no estimates (default)."""
         issue = JiraIssue(
             key="PROJ-132",
             summary="Task without estimates",
@@ -253,5 +253,5 @@ class TestTaskClassifier:
         classifier = TaskClassifier()
         estimated_days = classifier.estimate_effort_days(issue)
         
-        # Conservative default is 1.0 day
-        assert estimated_days == 1.0
+        # Default is 0.5 day (benefit of the doubt)
+        assert estimated_days == 0.5

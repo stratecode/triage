@@ -197,13 +197,14 @@ def test_daily_plan_to_markdown_with_other_tasks():
         priority="High",
         status="To Do",
         assignee="user@example.com",
+        story_points=5,
     )
     long_classification = TaskClassification(
         task=long_issue,
         category=TaskCategory.LONG_RUNNING,
         is_priority_eligible=False,
         has_dependencies=False,
-        estimated_days=5.0,
+        estimated_days=2.5,
     )
     
     admin_block = AdminBlock(
@@ -216,14 +217,23 @@ def test_daily_plan_to_markdown_with_other_tasks():
         date=date(2026, 1, 23),
         priorities=[],
         admin_block=admin_block,
-        other_tasks=[blocked_classification, long_classification],
+        other_tasks=[blocked_classification],
+        decomposition_suggestions=[long_classification],
     )
     
     markdown = plan.to_markdown()
     
+    # Check decomposition suggestions section
+    assert "## ⚠️ Tasks Requiring Decomposition" in markdown
+    assert "[PROJ-400] Long running task" in markdown
+    assert "Current estimate: 2.5 days" in markdown
+    assert "Story points: 5 SP" in markdown
+    assert "Break into 3 daily-closable subtasks" in markdown
+    assert "triage decompose PROJ-400" in markdown
+    
+    # Check other tasks section
     assert "## Other Active Tasks (For Reference)" in markdown
     assert "[PROJ-300] Blocked task (blocked by dependencies)" in markdown
-    assert "[PROJ-400] Long running task (decomposition needed)" in markdown
 
 
 def test_subtask_spec_creation():
