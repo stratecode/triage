@@ -72,6 +72,7 @@ class PlanGenerator:
         - Tasks with dependencies
         - Tasks with >1 day effort
         - Administrative tasks
+        - Blocked or waiting tasks (not actionable)
         
         Args:
             classifications: List of classified tasks
@@ -79,6 +80,9 @@ class PlanGenerator:
         Returns:
             List of priority-eligible tasks
         """
+        # Status values that indicate a task is blocked or waiting
+        blocked_statuses = {'blocked', 'waiting', 'on hold', 'pending'}
+        
         eligible = []
         
         for classification in classifications:
@@ -96,6 +100,12 @@ class PlanGenerator:
             
             # Exclude blocking tasks (they go through re-planning flow)
             if classification.category == TaskCategory.BLOCKING:
+                continue
+            
+            # Exclude blocked or waiting tasks (not actionable)
+            task_status_lower = classification.task.status.lower()
+            if task_status_lower in blocked_statuses:
+                logger.debug(f"  Excluding {classification.task.key} - status: {classification.task.status}")
                 continue
             
             eligible.append(classification)
@@ -232,6 +242,17 @@ class PlanGenerator:
         ]
         logger.info(f"Classified {len(classifications)} tasks")
         
+        # Identify blocked or waiting tasks (not actionable)
+        blocked_statuses = {'blocked', 'waiting', 'on hold', 'pending'}
+        blocked_tasks = [
+            c for c in classifications
+            if c.task.status.lower() in blocked_statuses
+        ]
+        if blocked_tasks:
+            logger.info(f"Found {len(blocked_tasks)} blocked/waiting tasks")
+            for c in blocked_tasks:
+                logger.info(f"  {c.task.key}: {c.task.status} - {c.task.summary}")
+        
         # Identify tasks that need decomposition (long-running tasks)
         decomposition_suggestions = [
             c for c in classifications
@@ -260,16 +281,18 @@ class PlanGenerator:
         admin_block = self._group_admin_tasks(classifications)
         logger.info(f"Grouped {len(admin_block.tasks)} administrative tasks ({admin_block.time_allocation_minutes} minutes)")
         
-        # Collect other tasks for reference (non-priority, non-admin, non-decomposition-suggestions)
+        # Collect other tasks for reference (non-priority, non-admin, non-decomposition-suggestions, non-blocked)
         priority_keys = {c.task.key for c in priorities}
         admin_keys = {c.task.key for c in admin_block.tasks}
         decomposition_keys = {c.task.key for c in decomposition_suggestions}
+        blocked_keys = {c.task.key for c in blocked_tasks}
         
         other_tasks = [
             c for c in classifications
             if c.task.key not in priority_keys 
             and c.task.key not in admin_keys
             and c.task.key not in decomposition_keys
+            and c.task.key not in blocked_keys
         ]
         logger.info(f"Identified {len(other_tasks)} other tasks for reference")
         
@@ -286,7 +309,8 @@ class PlanGenerator:
             admin_block=admin_block,
             other_tasks=other_tasks,
             previous_closure_rate=previous_closure_rate,
-            decomposition_suggestions=decomposition_suggestions
+            decomposition_suggestions=decomposition_suggestions,
+            blocked_tasks=blocked_tasks
         )
         
         logger.info(f"Daily plan generated successfully for {plan.date}")

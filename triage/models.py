@@ -72,6 +72,7 @@ class DailyPlan:
     other_tasks: List[TaskClassification]  # Non-priority tasks for reference
     previous_closure_rate: Optional[float] = None  # Previous day's closure rate
     decomposition_suggestions: List[TaskClassification] = field(default_factory=list)  # Tasks that should be decomposed
+    blocked_tasks: List[TaskClassification] = field(default_factory=list)  # Tasks blocked or waiting
     
     def to_markdown(self) -> str:
         """Format plan as structured markdown.
@@ -125,6 +126,22 @@ class DailyPlan:
                     lines.append(f"   - Priority: {task.priority}")
                 if task.status:
                     lines.append(f"   - Status: {task.status}")
+                lines.append("")
+        
+        # Blocked/waiting tasks
+        if self.blocked_tasks:
+            lines.append("## 🚫 Blocked/Waiting Tasks")
+            lines.append("")
+            lines.append("These tasks cannot be worked on until unblocked:")
+            lines.append("")
+            for classification in self.blocked_tasks:
+                task = classification.task
+                lines.append(f"- **[{task.key}] {task.summary}**")
+                lines.append(f"  - Status: {task.status}")
+                if classification.has_dependencies:
+                    lines.append(f"  - Reason: Blocked by dependencies")
+                if task.priority:
+                    lines.append(f"  - Priority: {task.priority}")
                 lines.append("")
         
         # Decomposition suggestions

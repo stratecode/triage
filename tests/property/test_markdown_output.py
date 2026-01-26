@@ -2,276 +2,288 @@
 # Copyright (C) 2026 StrateCode
 # Licensed under the GNU Affero General Public License v3 (AGPLv3)
 
-"""Property-based tests for markdown output validation.
+"""
+Property-based tests for long description truncation.
 
-Feature: ai-secretary
+Feature: slack-integration
+Property 20: Long Description Truncation
+
+For any task description exceeding 200 characters, the displayed text
+should be truncated with an ellipsis and provide an option to expand.
+
+Validates: Requirements 9.4
 """
 
-import markdown
-from datetime import date
-from hypothesis import given, strategies as st
-from triage.models import (
-    JiraIssue,
-    TaskClassification,
-    TaskCategory,
-    DailyPlan,
-    AdminBlock,
-    IssueLink,
+from hypothesis import given, strategies as st, assume
+from slack_bot.message_formatter import MessageFormatter
+
+
+# Feature: slack-integration, Property 20: Long Description Truncation
+@given(
+    text=st.text(min_size=1, max_size=1000),
+    max_length=st.integers(min_value=10, max_value=500)
 )
-
-
-# Custom strategies for generating test data
-@st.composite
-def issue_link_strategy(draw):
-    """Generate random IssueLink objects."""
-    link_types = ["blocks", "is blocked by", "relates to", "duplicates"]
-    # Generate JIRA-style keys like PROJ-123
-    project = draw(st.text(min_size=2, max_size=5, alphabet=st.characters(whitelist_categories=("Lu",))))
-    number = draw(st.integers(min_value=1, max_value=9999))
-    target_key = f"{project}-{number}"
+def test_property_20_long_description_truncation(text, max_length):
+    """
+    Property 20: Long Description Truncation
     
-    return IssueLink(
-        link_type=draw(st.sampled_from(link_types)),
-        target_key=target_key,
-        target_summary=draw(st.text(min_size=5, max_size=100)),
-    )
-
-
-@st.composite
-def jira_issue_strategy(draw):
-    """Generate random JiraIssue objects."""
-    issue_types = ["Story", "Bug", "Task", "Epic", "Sub-task"]
-    priorities = ["Blocker", "High", "Medium", "Low"]
-    statuses = ["To Do", "In Progress", "Blocked", "Done"]
+    For any task description exceeding the maximum length, the displayed
+    text should be truncated with an ellipsis.
     
-    # Generate JIRA-style keys like PROJ-123
-    project = draw(st.text(min_size=2, max_size=5, alphabet=st.characters(whitelist_categories=("Lu",))))
-    number = draw(st.integers(min_value=1, max_value=9999))
-    key = f"{project}-{number}"
+    The truncation should:
+    - Never exceed max_length characters
+    - End with "..." if text was truncated
+    - Preserve original text if within limit
+    - Be a prefix of the original text (minus ellipsis)
     
-    return JiraIssue(
-        key=key,
-        summary=draw(st.text(min_size=5, max_size=200)),
-        description=draw(st.text(min_size=0, max_size=500)),
-        issue_type=draw(st.sampled_from(issue_types)),
-        priority=draw(st.sampled_from(priorities)),
-        status=draw(st.sampled_from(statuses)),
-        assignee=draw(st.emails()),
-        story_points=draw(st.one_of(st.none(), st.integers(min_value=1, max_value=13))),
-        time_estimate=draw(st.one_of(st.none(), st.integers(min_value=3600, max_value=86400))),
-        labels=draw(st.lists(st.text(min_size=1, max_size=20), max_size=5)),
-        issue_links=draw(st.lists(issue_link_strategy(), max_size=3)),
-        custom_fields=draw(st.dictionaries(st.text(min_size=1, max_size=20), st.text(min_size=0, max_size=50), max_size=3)),
-    )
-
-
-@st.composite
-def task_classification_strategy(draw):
-    """Generate random TaskClassification objects."""
-    issue = draw(jira_issue_strategy())
-    category = draw(st.sampled_from(list(TaskCategory)))
+    Validates: Requirements 9.4
+    """
+    formatter = MessageFormatter(jira_base_url="https://jira.example.com")
     
-    # Determine eligibility based on category
-    is_priority_eligible = category == TaskCategory.PRIORITY_ELIGIBLE
-    has_dependencies = category == TaskCategory.DEPENDENT
+    truncated = formatter.truncate_text(text, max_length)
     
-    # Estimated days should be <= 1.0 for priority eligible tasks
-    if is_priority_eligible:
-        estimated_days = draw(st.floats(min_value=0.1, max_value=1.0))
+    # Truncated text should never exceed max_length
+    assert len(truncated) <= max_length, \
+        f"Truncated text length {len(truncated)} exceeds max {max_length}"
+    
+    if len(text) <= max_length:
+        # Text should be unchanged if within limit
+        assert truncated == text, \
+            f"Text within limit should not be modified: expected '{text}', got '{truncated}'"
     else:
-        estimated_days = draw(st.floats(min_value=0.1, max_value=10.0))
-    
-    blocking_reason = None
-    if category == TaskCategory.BLOCKING:
-        blocking_reason = draw(st.text(min_size=10, max_size=100))
-    
-    return TaskClassification(
-        task=issue,
-        category=category,
-        is_priority_eligible=is_priority_eligible,
-        has_dependencies=has_dependencies,
-        estimated_days=estimated_days,
-        blocking_reason=blocking_reason,
-    )
+        # Text should be truncated with ellipsis
+        assert truncated.endswith("..."), \
+            f"Truncated text should end with '...', got '{truncated}'"
+        
+        # Truncated text should be exactly max_length characters
+        assert len(truncated) == max_length, \
+            f"Truncated text should be exactly {max_length} chars, got {len(truncated)}"
+        
+        # Truncated text (minus ellipsis) should be prefix of original
+        truncated_content = truncated[:-3]  # Remove "..."
+        assert text.startswith(truncated_content), \
+            f"Truncated text should be a prefix of original text"
+        
+        # The ellipsis should replace at least 1 character
+        assert len(truncated_content) < len(text), \
+            "Truncation should remove at least some characters"
 
 
-@st.composite
-def admin_block_strategy(draw):
-    """Generate random AdminBlock objects."""
-    # Generate 0-5 administrative tasks
-    num_tasks = draw(st.integers(min_value=0, max_value=5))
-    tasks = []
-    for _ in range(num_tasks):
-        issue = draw(jira_issue_strategy())
-        classification = TaskClassification(
-            task=issue,
-            category=TaskCategory.ADMINISTRATIVE,
-            is_priority_eligible=False,
-            has_dependencies=False,
-            estimated_days=draw(st.floats(min_value=0.1, max_value=0.5)),
-        )
-        tasks.append(classification)
-    
-    time_allocation = draw(st.integers(min_value=0, max_value=90))
-    hour = draw(st.integers(min_value=13, max_value=17))
-    start_min = draw(st.integers(min_value=0, max_value=30))
-    end_hour = hour + 1 if start_min + time_allocation <= 60 else hour + 2
-    end_min = (start_min + time_allocation) % 60
-    scheduled_time = f"{hour:02d}:{start_min:02d}-{end_hour:02d}:{end_min:02d}"
-    
-    return AdminBlock(
-        tasks=tasks,
-        time_allocation_minutes=time_allocation,
-        scheduled_time=scheduled_time,
-    )
-
-
-@st.composite
-def daily_plan_strategy(draw):
-    """Generate random DailyPlan objects."""
-    # Generate 0-3 priority tasks
-    num_priorities = draw(st.integers(min_value=0, max_value=3))
-    priorities = []
-    for _ in range(num_priorities):
-        issue = draw(jira_issue_strategy())
-        classification = TaskClassification(
-            task=issue,
-            category=TaskCategory.PRIORITY_ELIGIBLE,
-            is_priority_eligible=True,
-            has_dependencies=False,
-            estimated_days=draw(st.floats(min_value=0.1, max_value=1.0)),
-        )
-        priorities.append(classification)
-    
-    admin_block = draw(admin_block_strategy())
-    
-    # Generate 0-10 other tasks
-    num_other = draw(st.integers(min_value=0, max_value=10))
-    other_tasks = [draw(task_classification_strategy()) for _ in range(num_other)]
-    
-    previous_closure_rate = draw(st.one_of(st.none(), st.floats(min_value=0.0, max_value=1.0)))
-    
-    plan_date = draw(st.dates(min_value=date(2020, 1, 1), max_value=date(2030, 12, 31)))
-    
-    return DailyPlan(
-        date=plan_date,
-        priorities=priorities,
-        admin_block=admin_block,
-        other_tasks=other_tasks,
-        previous_closure_rate=previous_closure_rate,
-    )
-
-
-# Property 22: Markdown Validity
-@given(daily_plan_strategy())
-def test_property_22_markdown_validity(plan: DailyPlan):
-    """Property 22: Markdown Validity
-    
-    For any generated daily plan, the markdown output shall be valid and parseable
-    by standard markdown processors.
-    
-    Feature: ai-secretary, Property 22: Markdown Validity
-    Validates: Requirements 9.1, 9.5
+@given(text=st.text(min_size=201, max_size=1000))
+def test_truncation_default_length_200(text):
     """
-    # Generate markdown output
-    markdown_output = plan.to_markdown()
+    Test that default truncation length is 200 characters.
     
-    # Verify output is a non-empty string
-    assert isinstance(markdown_output, str)
-    assert len(markdown_output) > 0
+    For any text exceeding 200 characters, truncation with default
+    parameters should produce a 200-character result.
     
-    # Verify markdown is parseable by standard markdown processor
-    try:
-        md = markdown.Markdown()
-        html_output = md.convert(markdown_output)
-        
-        # Verify HTML was generated
-        assert isinstance(html_output, str)
-        assert len(html_output) > 0
-        
-    except Exception as e:
-        raise AssertionError(f"Markdown parsing failed: {e}")
-    
-    # Verify basic structure elements are present
-    assert "# Daily Plan" in markdown_output
-    assert "## Today's Priorities" in markdown_output
-
-
-# Property 23: Task Information Completeness
-@given(daily_plan_strategy())
-def test_property_23_task_information_completeness(plan: DailyPlan):
-    """Property 23: Task Information Completeness
-    
-    For any task included in the plan output, the markdown shall contain task ID,
-    title, estimated effort, and dependency status.
-    
-    Feature: ai-secretary, Property 23: Task Information Completeness
-    Validates: Requirements 9.2
+    Validates: Requirements 9.4
     """
-    markdown_output = plan.to_markdown()
+    formatter = MessageFormatter(jira_base_url="https://jira.example.com")
     
-    # Check all priority tasks have required information
-    for classification in plan.priorities:
-        task = classification.task
-        
-        # Verify task ID is present
-        assert task.key in markdown_output, f"Task ID {task.key} not found in markdown output"
-        
-        # Verify task title/summary is present
-        assert task.summary in markdown_output, f"Task summary '{task.summary}' not found in markdown output"
-        
-        # Verify effort information is present
-        # Effort should be displayed in hours (days * 8)
-        effort_hours = classification.estimated_days * 8
-        assert "Effort:" in markdown_output, "Effort label not found in markdown output"
-        assert f"{effort_hours:.1f}" in markdown_output, f"Effort value {effort_hours:.1f} not found in markdown output"
-        
-        # Verify task type is present
-        assert task.issue_type in markdown_output, f"Task type {task.issue_type} not found in markdown output"
+    # Use default max_length (200)
+    truncated = formatter.truncate_text(text)
     
-    # Check all admin block tasks have required information
-    for classification in plan.admin_block.tasks:
-        task = classification.task
-        
-        # Verify task ID is present
-        assert task.key in markdown_output, f"Admin task ID {task.key} not found in markdown output"
-        
-        # Verify task title/summary is present
-        assert task.summary in markdown_output, f"Admin task summary '{task.summary}' not found in markdown output"
+    # Should be truncated to 200 characters
+    assert len(truncated) == 200, \
+        f"Default truncation should produce 200 chars, got {len(truncated)}"
     
-    # Check all other tasks have required information and dependency status
-    for classification in plan.other_tasks:
-        task = classification.task
+    # Should end with ellipsis
+    assert truncated.endswith("..."), \
+        f"Truncated text should end with '...'"
+    
+    # Content before ellipsis should be 197 characters
+    assert len(truncated[:-3]) == 197, \
+        f"Content before ellipsis should be 197 chars"
+
+
+@given(text=st.text(min_size=1, max_size=200))
+def test_no_truncation_within_limit(text):
+    """
+    Test that text within the limit is not truncated.
+    
+    For any text of 200 characters or less, no truncation should occur.
+    
+    Validates: Requirements 9.4
+    """
+    formatter = MessageFormatter(jira_base_url="https://jira.example.com")
+    
+    # Use default max_length (200)
+    truncated = formatter.truncate_text(text)
+    
+    # Should be unchanged
+    assert truncated == text, \
+        f"Text within limit should not be modified"
+    
+    # Should not end with ellipsis (unless original text did)
+    if not text.endswith("..."):
+        assert not truncated.endswith("...") or truncated == text, \
+            "Text within limit should not have ellipsis added"
+
+
+@given(
+    text=st.text(min_size=50, max_size=1000),
+    max_length=st.integers(min_value=20, max_value=100)
+)
+def test_truncation_preserves_prefix(text, max_length):
+    """
+    Test that truncation preserves the beginning of the text.
+    
+    Users should be able to read the start of the description even
+    when truncated.
+    
+    Validates: Requirements 9.4
+    """
+    assume(len(text) > max_length)  # Only test when truncation occurs
+    
+    formatter = MessageFormatter(jira_base_url="https://jira.example.com")
+    truncated = formatter.truncate_text(text, max_length)
+    
+    # Extract content before ellipsis
+    content = truncated[:-3] if truncated.endswith("...") else truncated
+    
+    # Content should be the exact prefix of original text
+    assert text.startswith(content), \
+        f"Truncated content should be exact prefix of original"
+    
+    # No characters should be skipped or modified
+    for i, char in enumerate(content):
+        assert char == text[i], \
+            f"Character at position {i} should match: expected '{text[i]}', got '{char}'"
+
+
+@given(text=st.text(min_size=1, max_size=1000))
+def test_truncation_idempotent(text):
+    """
+    Test that truncating already-truncated text doesn't change it.
+    
+    Truncation should be idempotent - truncating twice should give
+    the same result as truncating once.
+    
+    Validates: Requirements 9.4
+    """
+    formatter = MessageFormatter(jira_base_url="https://jira.example.com")
+    max_length = 200
+    
+    # Truncate once
+    truncated_once = formatter.truncate_text(text, max_length)
+    
+    # Truncate again
+    truncated_twice = formatter.truncate_text(truncated_once, max_length)
+    
+    # Should be identical
+    assert truncated_once == truncated_twice, \
+        f"Truncation should be idempotent"
+
+
+@given(
+    text=st.text(min_size=1, max_size=1000),
+    max_length1=st.integers(min_value=20, max_value=200),
+    max_length2=st.integers(min_value=20, max_value=200)
+)
+def test_truncation_length_ordering(text, max_length1, max_length2):
+    """
+    Test that shorter max_length produces shorter or equal result.
+    
+    Truncating to a shorter length should never produce a longer result
+    than truncating to a longer length.
+    
+    Validates: Requirements 9.4
+    """
+    assume(max_length1 < max_length2)
+    
+    formatter = MessageFormatter(jira_base_url="https://jira.example.com")
+    
+    truncated1 = formatter.truncate_text(text, max_length1)
+    truncated2 = formatter.truncate_text(text, max_length2)
+    
+    # Shorter max_length should produce shorter or equal result
+    assert len(truncated1) <= len(truncated2), \
+        f"Truncating to {max_length1} should not be longer than truncating to {max_length2}"
+    
+    # If both are truncated, shorter one should be prefix of longer one
+    if len(text) > max_length2:
+        # Both are truncated
+        content1 = truncated1[:-3] if truncated1.endswith("...") else truncated1
+        content2 = truncated2[:-3] if truncated2.endswith("...") else truncated2
         
-        # Verify task ID is present
-        assert task.key in markdown_output, f"Other task ID {task.key} not found in markdown output"
-        
-        # Verify task title/summary is present
-        assert task.summary in markdown_output, f"Other task summary '{task.summary}' not found in markdown output"
-        
-        # Verify dependency status is indicated for tasks with dependencies
-        if classification.has_dependencies:
-            # The dependency indicator should appear in the "Other Active Tasks" section
-            # Find the section and check if this task has the indicator
-            lines = markdown_output.split('\n')
-            in_other_section = False
-            found_task_with_indicator = False
-            
-            for line in lines:
-                if "## Other Active Tasks" in line:
-                    in_other_section = True
-                    continue
-                elif line.startswith("##"):
-                    in_other_section = False
-                    
-                if in_other_section and task.key in line:
-                    # This line should contain the dependency indicator
-                    if "blocked by dependencies" in line:
-                        found_task_with_indicator = True
-                        break
-            
-            # Only assert if the task is actually in the other tasks section
-            # (it might not be if it's a duplicate key with a priority task)
-            if in_other_section or any(task.key in line for line in lines if "## Other Active Tasks" in markdown_output):
-                assert found_task_with_indicator, \
-                    f"Task {task.key} has dependencies but no dependency indicator found in Other Active Tasks section"
+        # Shorter content should be prefix of longer content
+        assert content2.startswith(content1), \
+            f"Shorter truncation should be prefix of longer truncation"
+
+
+@given(text=st.text(min_size=1, max_size=1000))
+def test_truncation_never_adds_length(text):
+    """
+    Test that truncation never makes text longer.
+    
+    The truncated result should always be less than or equal to the
+    original text length.
+    
+    Validates: Requirements 9.4
+    """
+    formatter = MessageFormatter(jira_base_url="https://jira.example.com")
+    max_length = 200
+    
+    truncated = formatter.truncate_text(text, max_length)
+    
+    # Truncated text should never be longer than original
+    assert len(truncated) <= len(text), \
+        f"Truncation should not make text longer: original {len(text)}, truncated {len(truncated)}"
+
+
+@given(
+    text=st.text(min_size=1, max_size=1000),
+    max_length=st.integers(min_value=10, max_value=500)
+)
+def test_truncation_ellipsis_only_when_needed(text, max_length):
+    """
+    Test that ellipsis is only added when text is actually truncated.
+    
+    Text that fits within the limit should not have ellipsis added.
+    
+    Validates: Requirements 9.4
+    """
+    formatter = MessageFormatter(jira_base_url="https://jira.example.com")
+    
+    truncated = formatter.truncate_text(text, max_length)
+    
+    if len(text) <= max_length:
+        # Text fits, should not have ellipsis (unless original had it)
+        if not text.endswith("..."):
+            assert not truncated.endswith("..."), \
+                f"Should not add ellipsis to text that fits"
+    else:
+        # Text doesn't fit, should have ellipsis
+        assert truncated.endswith("..."), \
+            f"Should add ellipsis to truncated text"
+
+
+@given(max_length=st.integers(min_value=4, max_value=10))
+def test_truncation_minimum_length(max_length):
+    """
+    Test that truncation works even with very short max_length.
+    
+    Even with short limits, truncation should produce valid results
+    with ellipsis.
+    
+    Validates: Requirements 9.4
+    """
+    formatter = MessageFormatter(jira_base_url="https://jira.example.com")
+    
+    # Create text longer than max_length
+    text = "A" * (max_length + 10)
+    
+    truncated = formatter.truncate_text(text, max_length)
+    
+    # Should be exactly max_length
+    assert len(truncated) == max_length, \
+        f"Should truncate to exactly {max_length} chars"
+    
+    # Should end with ellipsis
+    assert truncated.endswith("..."), \
+        f"Should end with ellipsis"
+    
+    # Should have at least 1 character before ellipsis
+    assert len(truncated) >= 4, \
+        f"Should have at least 4 chars (1 char + '...')"

@@ -11,6 +11,13 @@ dependencies = [
     "pytest-asyncio>=0.21.0",
     "click>=8.1.0",
     "python-dotenv>=1.0.0",
+    # Slack bot dependencies
+    "slack-sdk>=3.26.0",
+    "slack-bolt>=1.18.0",
+    "httpx>=0.25.0",
+    "pydantic>=2.5.0",
+    "redis>=5.0.0",
+    "cryptography>=41.0.0",
 ]
 
 [project.scripts]
