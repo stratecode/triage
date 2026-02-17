@@ -41,7 +41,37 @@ TrIAge reduces cognitive load by generating focused daily plans with a maximum o
 
 TrIAge can be deployed in two ways:
 
-### 1. AWS Serverless (Recommended for Production)
+### 1. Docker Local (Recommended for Development)
+
+Run a complete replica of the AWS stack locally for debugging and testing.
+
+**Quick Start:**
+```bash
+# 1. Configure environment
+cp .env.example .env
+# Edit .env with your JIRA credentials
+
+# 2. Start the stack
+make docker-up
+
+# 3. Test the API
+make docker-test
+
+# 4. View logs
+make docker-logs
+# Or in browser: http://localhost:8080
+```
+
+**Features:**
+- Complete AWS stack replica (API Gateway + Lambda + EventBridge)
+- Hot-reload for code changes
+- Real-time log viewing
+- No cold starts
+- JWT token generation for testing
+
+**Documentation:** [Docker Local Setup Guide](docs/DOCKER_LOCAL_SETUP.md)
+
+### 2. AWS Serverless (Recommended for Production)
 
 Deploy as a serverless API on AWS Lambda + API Gateway.
 

@@ -1,0 +1,40 @@
+# TrIAge
+# Copyright (C) 2026 StrateCode
+# Licensed under the GNU Affero General Public License v3 (AGPLv3)
+
+# Core dependencies for Docker deployment
+annotated-types==0.7.0
+anyio==4.12.1
+certifi==2026.1.4
+charset-normalizer==3.4.4
+click==8.3.1
+httpcore==1.0.9
+httpx==0.28.1
+hypothesis==6.150.3
+idna==3.11
+markdown==3.10.1
+pydantic==2.12.5
+pydantic-core==2.41.5
+pytest==9.0.2
+pytest-asyncio==1.3.0
+python-dotenv==1.2.1
+requests==2.32.5
+slack-bolt==1.27.0
+slack-sdk==3.39.0
+typing-extensions==4.15.0
+urllib3==2.6.3
+
+# API server dependencies
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-jose[cryptography]==3.3.0
+python-multipart==0.0.6
+PyJWT==2.8.0
+
+# AWS SDK (for Lambda handlers compatibility)
+# boto3 and botocore must be compatible versions
+boto3==1.35.50
+botocore==1.35.50
+
+# Scheduler dependencies
+croniter==2.0.1

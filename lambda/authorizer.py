@@ -44,8 +44,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     Expected header: Authorization: Bearer <token>
     """
     try:
-        # Extract token from Authorization header
-        token = event['headers'].get('Authorization', '').replace('Bearer ', '')
+        # Debug: Log the entire event to see what we're receiving
+        print(f"Authorizer event: {json.dumps(event)}")
+        
+        # Extract token from Authorization header (case-insensitive)
+        headers = event.get('headers', {})
+        
+        # API Gateway may normalize headers to lowercase
+        auth_header = headers.get('Authorization') or headers.get('authorization', '')
+        token = auth_header.replace('Bearer ', '').replace('bearer ', '')
         
         if not token:
             print("No token provided")

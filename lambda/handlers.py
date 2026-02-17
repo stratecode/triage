@@ -87,18 +87,19 @@ def generate_plan(event: Dict, context: Any) -> Dict:
         )
         
         classifier = TaskClassifier()
-        generator = PlanGenerator()
+        
+        # Use /tmp for closure tracking in Lambda (only writable directory)
+        closure_dir = os.path.join('/tmp', '.triage', 'closure')
+        generator = PlanGenerator(jira_client, classifier, closure_tracking_dir=closure_dir)
         
         # Fetch and classify tasks
-        issues = jira_client.fetch_active_issues()
+        issues = jira_client.fetch_active_tasks()
         logger.info(f"Fetched {len(issues)} active issues")
         
-        classified_tasks = [classifier.classify(issue) for issue in issues]
+        classified_tasks = [classifier.classify_task(issue) for issue in issues]
         
         # Generate plan
-        plan = generator.generate_plan(
-            classified_tasks=classified_tasks,
-            target_date=datetime.fromisoformat(plan_date).date(),
+        plan = generator.generate_daily_plan(
             previous_closure_rate=closure_rate
         )
         
@@ -111,23 +112,23 @@ def generate_plan(event: Dict, context: Any) -> Dict:
             'plan': {
                 'priorities': [
                     {
-                        'key': p.issue.key,
-                        'summary': p.issue.summary,
-                        'effort_hours': p.effort_hours,
-                        'priority': p.priority
+                        'key': p.task.key,
+                        'summary': p.task.summary,
+                        'estimated_days': p.estimated_days,
+                        'category': p.category.value
                     }
                     for p in plan.priorities
                 ],
                 'admin_block': {
                     'tasks': [
                         {
-                            'key': t.issue.key,
-                            'summary': t.issue.summary
+                            'key': t.task.key,
+                            'summary': t.task.summary
                         }
                         for t in plan.admin_block.tasks
                     ],
-                    'time_start': plan.admin_block.time_start,
-                    'time_end': plan.admin_block.time_end
+                    'time_allocation_minutes': plan.admin_block.time_allocation_minutes,
+                    'scheduled_time': plan.admin_block.scheduled_time
                 } if plan.admin_block else None,
                 'other_tasks_count': len(plan.other_tasks),
                 'markdown': markdown
@@ -228,29 +229,30 @@ def decompose_task(event: Dict, context: Any) -> Dict:
         )
         
         classifier = TaskClassifier()
-        generator = PlanGenerator()
+        
+        # Use /tmp for closure tracking in Lambda (only writable directory)
+        closure_dir = os.path.join('/tmp', '.triage', 'closure')
+        generator = PlanGenerator(jira_client, classifier, closure_tracking_dir=closure_dir)
         
         # Fetch the specific task
-        issue = jira_client.fetch_issue(task_id)
-        classified = classifier.classify(issue)
+        issue = jira_client.get_task_by_key(task_id)
         
-        # Generate decomposition
-        decomposition = generator.propose_decomposition(classified, target_days)
+        # Generate decomposition (returns List[SubtaskSpec])
+        subtasks = generator.propose_decomposition(issue)
         
         return create_response(200, {
             'success': True,
             'task_id': task_id,
-            'decomposition': {
-                'parent_key': decomposition.parent_key,
-                'subtasks': [
-                    {
-                        'summary': st.summary,
-                        'description': st.description,
-                        'estimated_hours': st.estimated_hours
-                    }
-                    for st in decomposition.subtasks
-                ]
-            }
+            'parent_key': task_id,
+            'subtasks': [
+                {
+                    'summary': st.summary,
+                    'description': st.description,
+                    'estimated_days': st.estimated_days,
+                    'order': st.order
+                }
+                for st in subtasks
+            ]
         })
         
     except Exception as e:

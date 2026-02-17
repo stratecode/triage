@@ -1,0 +1,43 @@
+# TrIAge
+# Copyright (C) 2026 StrateCode
+# Licensed under the GNU Affero General Public License v3 (AGPLv3)
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv for package management
+RUN pip install --no-cache-dir uv
+
+# Copy Docker-specific requirements
+COPY docker/requirements.txt /app/requirements.txt
+
+# Install Python dependencies using uv
+RUN uv pip install --system -r requirements.txt
+
+# Copy application code
+COPY triage/ /app/triage/
+COPY lambda/ /app/lambda/
+
+# Copy local API server
+COPY docker/local_api.py /app/
+
+# Create logs directory
+RUN mkdir -p /app/logs
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
+    CMD curl -f http://localhost:8000/api/v1/health || exit 1
+
+# Run the API server
+CMD ["uvicorn", "local_api:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "debug"]

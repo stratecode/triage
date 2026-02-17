@@ -41,10 +41,22 @@ Resources:
             Identity:
               Headers:
                 - Authorization
+              ReauthorizeEvery: 300
       Cors:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization'"
         AllowOrigin: "'*'"
+      GatewayResponses:
+        UNAUTHORIZED:
+          StatusCode: 401
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+        ACCESS_DENIED:
+          StatusCode: 403
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
 
   # Lambda: JWT Authorizer
   AuthorizerFunction:
@@ -55,6 +67,17 @@ Resources:
       Environment:
         Variables:
           JWT_SECRET_NAME: !Sub '/${Environment}/triage/jwt-secret'
+      Policies:
+        - SecretsManagerReadWrite
+
+  # Permission for API Gateway to invoke Authorizer
+  AuthorizerInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt AuthorizerFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${TriageApi}/*'
 
   # Lambda: Generate Daily Plan
   GeneratePlanFunction:

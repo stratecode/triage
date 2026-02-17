@@ -38,6 +38,7 @@ Crea una política IAM personalizada con estos permisos:
         "cloudformation:DescribeStackEvents",
         "cloudformation:DescribeStackResources",
         "cloudformation:GetTemplate",
+        "cloudformation:GetTemplateSummary",
         "cloudformation:ValidateTemplate",
         "cloudformation:CreateChangeSet",
         "cloudformation:DescribeChangeSet",

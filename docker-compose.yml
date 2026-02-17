@@ -1,0 +1,64 @@
+# TrIAge
+# Copyright (C) 2026 StrateCode
+# Licensed under the GNU Affero General Public License v3 (AGPLv3)
+
+services:
+  # API Gateway + Lambda Functions
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    ports:
+      - "8000:8000"
+    environment:
+      - LOG_LEVEL=DEBUG
+      - REGION=local
+      - AWS_DEFAULT_REGION=eu-south-2
+      - AWS_REGION=eu-south-2
+      - JIRA_BASE_URL=${JIRA_BASE_URL}
+      - JIRA_EMAIL=${JIRA_EMAIL}
+      - JIRA_API_TOKEN=${JIRA_API_TOKEN}
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+    volumes:
+      - ./triage:/app/triage:ro
+      - ./lambda:/app/lambda:ro
+      - ./logs:/app/logs
+    networks:
+      - triage-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Scheduled Task Runner (simula EventBridge)
+  scheduler:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.scheduler
+    environment:
+      - API_URL=http://api:8000
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - SCHEDULE_CRON=0 7 * * 1-5
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - triage-network
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # CloudWatch Logs Viewer (opcional)
+  logs-viewer:
+    image: amir20/dozzle:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - triage-network
+
+networks:
+  triage-network:
+    driver: bridge

@@ -2,111 +2,130 @@
 # Copyright (C) 2026 StrateCode
 # Licensed under the GNU Affero General Public License v3 (AGPLv3)
 
-.PHONY: help install test deploy local clean
+.PHONY: help install test lint format clean docker-up docker-down docker-test deploy-dev deploy-prod
 
-PROFILE := stratecode
-REGION := eu-south-2
-ENV := dev
+# Default target
+.DEFAULT_GOAL := help
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
 	@echo ''
 	@echo 'Available targets:'
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-install: ## Install dependencies
+# Development
+install: ## Install dependencies using uv
 	uv pip install -r requirements.txt
-	uv pip install -e .
+	uv pip install -r requirements-dev.txt
 
-test: ## Run tests
-	uv run pytest tests/ -v
+test: ## Run all tests
+	pytest tests/ -v
 
 test-unit: ## Run unit tests only
-	uv run pytest tests/unit/ -v
+	pytest tests/unit/ -v
 
 test-property: ## Run property-based tests
-	uv run pytest tests/property/ -v
+	pytest tests/property/ -v
 
 test-integration: ## Run integration tests
-	uv run pytest tests/integration/ -v
+	pytest tests/integration/ -v
 
-coverage: ## Run tests with coverage
-	uv run pytest --cov=triage --cov-report=html --cov-report=term
+lint: ## Run linting checks
+	ruff check triage/ lambda/ tests/
+	mypy triage/ lambda/
 
-setup-iam: ## Setup IAM permissions for user (requires USERNAME)
-	@if [ -z "$(USERNAME)" ]; then \
-		echo "Usage: make setup-iam USERNAME=<iam-username>"; \
-		exit 1; \
-	fi
-	./scripts/setup-iam-permissions.sh $(USERNAME)
+format: ## Format code
+	ruff format triage/ lambda/ tests/
 
-setup-secrets: ## Setup AWS secrets (requires .env)
-	./scripts/setup-secrets.sh $(ENV)
+clean: ## Clean up generated files
+	find . -type d -name "__pycache__" -exec rm -rf {} +
+	find . -type d -name "*.egg-info" -exec rm -rf {} +
+	find . -type d -name ".pytest_cache" -exec rm -rf {} +
+	find . -type d -name ".hypothesis" -exec rm -rf {} +
+	find . -type f -name "*.pyc" -delete
+	rm -rf .coverage htmlcov/
+	rm -rf logs/*.log
 
-deploy: ## Deploy to AWS
-	./scripts/deploy.sh $(ENV)
+# Docker Local
+docker-up: ## Start Docker local stack
+	./scripts/docker-local.sh up
 
-deploy-prod: ## Deploy to production
+docker-down: ## Stop Docker local stack
+	./scripts/docker-local.sh down
+
+docker-restart: ## Restart Docker local stack
+	./scripts/docker-local.sh restart
+
+docker-logs: ## View Docker logs
+	./scripts/docker-local.sh logs api
+
+docker-test: ## Test Docker local stack
+	./scripts/docker-local.sh test
+
+docker-token: ## Generate JWT token for local testing
+	./scripts/docker-local.sh token admin 30
+
+docker-rebuild: ## Rebuild Docker images
+	./scripts/docker-local.sh rebuild
+
+docker-clean: ## Clean up Docker resources
+	./scripts/docker-local.sh clean
+
+# AWS Deployment
+deploy-dev: ## Deploy to AWS dev environment
+	./scripts/deploy.sh dev
+
+deploy-prod: ## Deploy to AWS prod environment
 	./scripts/deploy.sh prod
 
-local: ## Run API locally
-	./scripts/local-test.sh
+aws-logs: ## View AWS Lambda logs
+	sam logs -n GeneratePlanFunction --stack-name triage-api-dev --tail
 
-generate-token: ## Generate JWT token
-	./scripts/generate-token.sh $(ENV) admin 30
-
-test-api: ## Test deployed API (requires API_URL and TOKEN)
-	@if [ -z "$(API_URL)" ] || [ -z "$(TOKEN)" ]; then \
-		echo "Usage: make test-api API_URL=<url> TOKEN=<token>"; \
+aws-test: ## Test AWS deployment (requires API_URL and TOKEN env vars)
+	@if [ -z "$$API_URL" ] || [ -z "$$TOKEN" ]; then \
+		echo "Error: Set API_URL and TOKEN environment variables"; \
+		echo "Example: API_URL=https://xxx.execute-api.eu-south-2.amazonaws.com/dev TOKEN=xxx make aws-test"; \
 		exit 1; \
 	fi
-	./scripts/test-api.sh $(API_URL) $(TOKEN)
+	./scripts/test-api.sh $$API_URL $$TOKEN
 
-logs: ## Tail Lambda logs
-	sam logs -n GeneratePlanFunction --stack-name triage-api-$(ENV) --tail --profile $(PROFILE) --region $(REGION)
+# SAM Local
+sam-build: ## Build SAM application
+	sam build
 
-clean: ## Clean build artifacts
-	rm -rf .aws-sam/
-	rm -rf lambda/triage/
-	rm -rf lambda/__pycache__/
-	find . -type d -name __pycache__ -exec rm -rf {} +
-	find . -type f -name '*.pyc' -delete
+sam-local: ## Start SAM local API
+	sam local start-api --warm-containers EAGER
 
-clean-all: clean ## Clean everything including venv
-	rm -rf .venv/
-	rm -rf .pytest_cache/
-	rm -rf .hypothesis/
-	rm -rf htmlcov/
+sam-invoke: ## Invoke Lambda function locally
+	sam local invoke GeneratePlanFunction --event events/generate-plan.json
 
-build: ## Build SAM application
-	sam build --profile $(PROFILE) --region $(REGION)
+# Examples
+demo-mvp: ## Run MVP demo
+	python examples/demo_mvp.py
 
-validate: ## Validate SAM template
-	sam validate --profile $(PROFILE) --region $(REGION)
+demo-decomposition: ## Run decomposition demo
+	python examples/demo_decomposition.py
 
-package: ## Package for deployment
-	sam package --profile $(PROFILE) --region $(REGION)
+demo-replanning: ## Run replanning demo
+	python examples/demo_replanning.py
 
-delete-stack: ## Delete CloudFormation stack
-	aws cloudformation delete-stack \
-		--profile $(PROFILE) \
-		--region $(REGION) \
-		--stack-name triage-api-$(ENV)
+demo-closure: ## Run closure tracking demo
+	python examples/demo_closure_tracking.py
 
-describe-stack: ## Describe CloudFormation stack
-	aws cloudformation describe-stacks \
-		--profile $(PROFILE) \
-		--region $(REGION) \
-		--stack-name triage-api-$(ENV)
+validate-mvp: ## Validate MVP implementation
+	python examples/validate_mvp.py
 
-list-secrets: ## List AWS secrets
-	aws secretsmanager list-secrets \
-		--profile $(PROFILE) \
-		--region $(REGION) \
-		--filters Key=name,Values=/$(ENV)/triage/
+diagnose-jira: ## Diagnose JIRA connection
+	python examples/diagnose-jira-connection.py
 
-cli-plan: ## Generate plan using CLI
-	triage generate-plan --debug
+# Documentation
+docs: ## Generate API documentation
+	@echo "Generating API documentation..."
+	@echo "TODO: Add OpenAPI spec generation"
 
-cli-help: ## Show CLI help
-	triage --help
+# Quick workflows
+dev: docker-up docker-test ## Start local development environment and run tests
+
+ci: lint test ## Run CI checks (lint + test)
+
+all: clean install lint test ## Run full build pipeline

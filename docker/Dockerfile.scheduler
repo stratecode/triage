@@ -1,0 +1,29 @@
+# TrIAge
+# Copyright (C) 2026 StrateCode
+# Licensed under the GNU Affero General Public License v3 (AGPLv3)
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv and dependencies
+RUN pip install --no-cache-dir uv
+RUN uv pip install --system \
+    httpx==0.26.0 \
+    python-jose[cryptography]==3.3.0 \
+    PyJWT==2.8.0 \
+    croniter==2.0.1
+
+# Copy scheduler script
+COPY docker/scheduler.py /app/
+
+# Create logs directory
+RUN mkdir -p /app/logs
+
+# Run the scheduler
+CMD ["python", "scheduler.py"]
