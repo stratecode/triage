@@ -1,0 +1,194 @@
+# TrIAge
+# Copyright (C) 2026 StrateCode
+# Licensed under the GNU Affero General Public License v3 (AGPLv3)
+
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: TrIAge - AI Secretary Serverless API
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 30
+    MemorySize: 512
+    Environment:
+      Variables:
+        LOG_LEVEL: INFO
+        REGION: eu-south-2
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: Deployment environment
+
+Resources:
+  # API Gateway
+  TriageApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Environment
+      Auth:
+        DefaultAuthorizer: JWTAuthorizer
+        Authorizers:
+          JWTAuthorizer:
+            FunctionArn: !GetAtt AuthorizerFunction.Arn
+            FunctionPayloadType: REQUEST
+            Identity:
+              Headers:
+                - Authorization
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin: "'*'"
+
+  # Lambda: JWT Authorizer
+  AuthorizerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/
+      Handler: authorizer.handler
+      Environment:
+        Variables:
+          JWT_SECRET_NAME: !Sub '/${Environment}/triage/jwt-secret'
+
+  # Lambda: Generate Daily Plan
+  GeneratePlanFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/
+      Handler: handlers.generate_plan
+      Policies:
+        - SecretsManagerReadWrite
+      Environment:
+        Variables:
+          JIRA_SECRET_NAME: !Sub '/${Environment}/triage/jira-credentials'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TriageApi
+            Path: /api/v1/plan
+            Method: POST
+        ScheduledEvent:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 7 ? * MON-FRI *)
+            Description: Generate daily plan at 7 AM on weekdays
+            Enabled: true
+
+  # Lambda: Get Plan Status
+  GetPlanFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/
+      Handler: handlers.get_plan
+      Policies:
+        - SecretsManagerReadWrite
+      Environment:
+        Variables:
+          JIRA_SECRET_NAME: !Sub '/${Environment}/triage/jira-credentials'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TriageApi
+            Path: /api/v1/plan/{date}
+            Method: GET
+
+  # Lambda: Approve Plan
+  ApprovePlanFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/
+      Handler: handlers.approve_plan
+      Policies:
+        - SecretsManagerReadWrite
+      Environment:
+        Variables:
+          JIRA_SECRET_NAME: !Sub '/${Environment}/triage/jira-credentials'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TriageApi
+            Path: /api/v1/plan/{date}/approve
+            Method: POST
+
+  # Lambda: Decompose Task
+  DecomposeTaskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/
+      Handler: handlers.decompose_task
+      Timeout: 60
+      Policies:
+        - SecretsManagerReadWrite
+      Environment:
+        Variables:
+          JIRA_SECRET_NAME: !Sub '/${Environment}/triage/jira-credentials'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TriageApi
+            Path: /api/v1/task/{taskId}/decompose
+            Method: POST
+
+  # Lambda: Health Check
+  HealthCheckFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/
+      Handler: handlers.health_check
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TriageApi
+            Path: /api/v1/health
+            Method: GET
+            Auth:
+              Authorizer: NONE
+
+  # CloudWatch Log Groups
+  GeneratePlanLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${GeneratePlanFunction}'
+      RetentionInDays: 7
+
+  GetPlanLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${GetPlanFunction}'
+      RetentionInDays: 7
+
+  ApprovePlanLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${ApprovePlanFunction}'
+      RetentionInDays: 7
+
+  DecomposeTaskLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${DecomposeTaskFunction}'
+      RetentionInDays: 7
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${TriageApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiUrl'
+
+  ApiId:
+    Description: API Gateway ID
+    Value: !Ref TriageApi
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiId'

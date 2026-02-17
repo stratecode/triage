@@ -1,4 +1,10 @@
-# Python
+# TrIAge
+# Copyright (C) 2026 StrateCode
+# Licensed under the GNU Affero General Public License v3 (AGPLv3)
+
+# ============================================================================
+# Python Runtime & Build Artifacts
+# ============================================================================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -16,35 +22,187 @@ parts/
 sdist/
 var/
 wheels/
+pip-wheel-metadata/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
-# Virtual environments
+# ============================================================================
+# Virtual Environments
+# ============================================================================
 .venv/
 venv/
 ENV/
 env/
+.virtualenv/
 
-# Testing
+# ============================================================================
+# Testing & Coverage
+# ============================================================================
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+.tox/
+.nox/
 .hypothesis/
+*.cover
+*.py,cover
+coverage.json
+.cache
+nosetests.xml
+coverage.xml
+*.coveragerc
 
-# IDE
+# ============================================================================
+# IDEs & Editors
+# ============================================================================
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
-# OS
 .DS_Store
+*.sublime-project
+*.sublime-workspace
+.project
+.pydevproject
+.settings/
+
+# ============================================================================
+# Environment Variables & Secrets
+# ============================================================================
+.env
+.env.local
+.env.*.local
+.envrc
+
+# ============================================================================
+# AWS SAM & CloudFormation
+# ============================================================================
+.aws-sam/
+samconfig.toml
+
+# ============================================================================
+# Lambda Build Artifacts (Keep lambda/ folder structure but ignore dependencies)
+# ============================================================================
+# Keep: lambda/handlers.py, lambda/authorizer.py, lambda/requirements.txt
+# Ignore: All installed dependencies in lambda/
+lambda/annotated_types/
+lambda/annotated_types-*/
+lambda/bin/
+lambda/boto3/
+lambda/boto3-*/
+lambda/botocore/
+lambda/botocore-*/
+lambda/certifi/
+lambda/certifi-*/
+lambda/charset_normalizer/
+lambda/charset_normalizer-*/
+lambda/dateutil/
+lambda/dotenv/
+lambda/idna/
+lambda/idna-*/
+lambda/jmespath/
+lambda/jmespath-*/
+lambda/jwt/
+lambda/markdown/
+lambda/markdown-*/
+lambda/pydantic/
+lambda/pydantic_core/
+lambda/pydantic_core-*/
+lambda/pydantic-*/
+lambda/pyjwt-*/
+lambda/python_dateutil-*/
+lambda/python_dotenv-*/
+lambda/requests/
+lambda/requests-*/
+lambda/s3transfer/
+lambda/s3transfer-*/
+lambda/six-*/
+lambda/six.py
+lambda/typing_extensions-*/
+lambda/typing_extensions.py
+lambda/typing_inspection/
+lambda/typing_inspection-*/
+lambda/urllib3/
+lambda/urllib3-*/
+lambda/.lock
+# Ignore the copied triage package (regenerated on build)
+lambda/triage/
+
+# ============================================================================
+# Slack Bot Dependencies (Keep structure but ignore dependencies)
+# ============================================================================
+slack_bot/.venv/
+slack_bot/__pycache__/
+slack_bot/.env
+slack_bot/*.log
+
+# ============================================================================
+# Logs
+# ============================================================================
+*.log
+logs/
+*.log.*
+
+# ============================================================================
+# Temporary Files & Folders
+# ============================================================================
+*.tmp
+*.temp
+.triage/
+prueba/
+
+# ============================================================================
+# OS Generated Files
+# ============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# Project specific
-*.log
-config.yaml
-.env
-.kiro
+# ============================================================================
+# Project Specific
+# ============================================================================
+env.json
+
+# ============================================================================
+# Distribution & Packaging
+# ============================================================================
+*.tar.gz
+*.zip
+*.whl
+
+# ============================================================================
+# Jupyter Notebooks
+# ============================================================================
+.ipynb_checkpoints/
+*.ipynb
+
+# ============================================================================
+# mypy
+# ============================================================================
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ============================================================================
+# Pyre type checker
+# ============================================================================
+.pyre/
+
+# ============================================================================
+# pytype static type analyzer
+# ============================================================================
+.pytype/
+
+# ============================================================================
+# Cython debug symbols
+# ============================================================================
+cython_debug/

@@ -37,6 +37,42 @@ TrIAge reduces cognitive load by generating focused daily plans with a maximum o
 4. **Overhead Reduction**: Group administrative tasks into dedicated blocks
 5. **Progress Tracking**: Monitor your daily closure rate
 
+## Deployment Options
+
+TrIAge can be deployed in two ways:
+
+### 1. AWS Serverless (Recommended for Production)
+
+Deploy as a serverless API on AWS Lambda + API Gateway.
+
+**Quick Start:**
+```bash
+# 1. Setup IAM permissions (first time only)
+./scripts/setup-iam-permissions.sh YOUR_IAM_USERNAME
+
+# 2. Configure JIRA credentials
+cp .env.example .env
+# Edit .env with your JIRA credentials
+
+# 3. Deploy
+./scripts/deploy.sh dev
+
+# 4. Setup secrets
+./scripts/setup-secrets.sh dev
+
+# 5. Generate authentication token
+./scripts/generate-token.sh dev
+
+# 6. Test the API
+./scripts/test-api.sh <API_URL> <TOKEN>
+```
+
+See [scripts/README.md](scripts/README.md) for detailed script documentation, or [docs/AWS_DEPLOYMENT.md](docs/AWS_DEPLOYMENT.md) for complete deployment guide.
+
+### 2. Local Installation
+
+Run TrIAge locally on your machine.
+
 ## Installation
 
 ### Prerequisites
@@ -44,6 +80,7 @@ TrIAge reduces cognitive load by generating focused daily plans with a maximum o
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/) package manager
 - JIRA account with API token
+- (For AWS deployment) AWS CLI configured with profile `stratecode`
 
 ### Quick Install
 
@@ -533,21 +570,28 @@ docs/                       # Documentation
 
 ## Documentation
 
-### User Guides
+Complete documentation is available in the [docs/](docs/) directory:
 
-- [Logging Guide](docs/LOGGING_GUIDE.md) - Complete logging system
-- [MVP Validation Guide](docs/MVP_VALIDATION_GUIDE.md) - How to validate the system
-- [JIRA API Migration](docs/JIRA_API_MIGRATION.md) - API changes
+- **[Documentation Index](docs/README.md)** - Complete documentation catalog
+- **[AWS Deployment](docs/AWS_DEPLOYMENT.md)** - AWS deployment guide
+- **[Postman Setup](docs/POSTMAN_SETUP.md)** - API testing guide
+- **[Lambda Folder](docs/LAMBDA_FOLDER_EXPLANATION.md)** - Understanding the deployment package
+- **[Repository Files](docs/REPOSITORY_FILES_GUIDE.md)** - Git best practices
+- **[Logging Guide](docs/LOGGING_GUIDE.md)** - Logging system usage
 
-### Technical Documentation
+### Quick Links
 
-- [Logging Implementation](docs/LOGGING_IMPLEMENTATION.md)
-- [Closure Tracking Implementation](docs/CLOSURE_TRACKING_IMPLEMENTATION.md)
-- [Re-planning Implementation](docs/REPLANNING_IMPLEMENTATION.md)
-- [MVP Validation Results](docs/MVP_VALIDATION_RESULTS.md)
+| Category | Documents |
+|----------|-----------|
+| **Getting Started** | [Main README](README.md), [Installation](#installation) |
+| **Deployment** | [AWS Guide](docs/AWS_DEPLOYMENT.md), [Scripts](scripts/README.md), [IAM Setup](docs/AWS_IAM_PERMISSIONS.md) |
+| **API** | [Postman Setup](docs/POSTMAN_SETUP.md), [API Collection](docs/postman_collection.json) |
+| **Development** | [Implementation Context](.kiro/steering/implementation-context.md), [Running Tests](#running-tests) |
+| **Troubleshooting** | [JIRA Issues](docs/JIRA_API_MIGRATION.md), [Logging](docs/LOGGING_GUIDE.md) |
 
-### Specifications
+### For Developers
 
+- **[Implementation Context](.kiro/steering/implementation-context.md)** - Complete technical context for future development phases
 - [Requirements](.kiro/specs/triage-mvp/requirements.md) - User stories and criteria
 - [Design](.kiro/specs/triage-mvp/design.md) - Architecture and components
 - [Tasks](.kiro/specs/triage-mvp/tasks.md) - Implementation plan
