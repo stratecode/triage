@@ -197,3 +197,5 @@ ai-secretary generate-plan --date today
 - Remember to use uv instead of pip to manage and install packages
 - Put all the demos into examples folder and all the documents to clarify or audit something into docs folder
 - All the comments and texts for documentation shuold be in english
+- Use always the commands created in the makefile instead of running native commands
+- Remember that the docker project is named "triage"

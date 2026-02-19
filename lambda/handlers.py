@@ -16,7 +16,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from triage.jira_client import JiraClient
 from triage.task_classifier import TaskClassifier
 from triage.plan_generator import PlanGenerator
-from triage.models import ApprovalResult
 
 # Configure logging
 logger = logging.getLogger()
@@ -69,8 +68,9 @@ def generate_plan(event: Dict, context: Any) -> Dict:
     }
     """
     try:
-        # Parse request body
-        body = json.loads(event.get('body', '{}'))
+        # Parse request body (handle None body from API Gateway)
+        body_str = event.get('body') or '{}'
+        body = json.loads(body_str)
         plan_date = body.get('date', date.today().isoformat())
         closure_rate = body.get('closure_rate')
         
@@ -83,7 +83,8 @@ def generate_plan(event: Dict, context: Any) -> Dict:
         jira_client = JiraClient(
             base_url=creds['jira_base_url'],
             email=creds['jira_email'],
-            api_token=creds['jira_api_token']
+            api_token=creds['jira_api_token'],
+            project=creds.get('jira_project')  # Optional project filter
         )
         
         classifier = TaskClassifier()
@@ -225,7 +226,8 @@ def decompose_task(event: Dict, context: Any) -> Dict:
         jira_client = JiraClient(
             base_url=creds['jira_base_url'],
             email=creds['jira_email'],
-            api_token=creds['jira_api_token']
+            api_token=creds['jira_api_token'],
+            project=creds.get('jira_project')  # Optional project filter
         )
         
         classifier = TaskClassifier()

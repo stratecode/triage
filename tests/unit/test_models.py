@@ -5,15 +5,16 @@
 """Unit tests for core data models."""
 
 from datetime import date
+
 from triage.models import (
-    JiraIssue,
-    IssueLink,
-    TaskClassification,
-    TaskCategory,
-    DailyPlan,
     AdminBlock,
-    SubtaskSpec,
     ApprovalResult,
+    DailyPlan,
+    IssueLink,
+    JiraIssue,
+    SubtaskSpec,
+    TaskCategory,
+    TaskClassification,
 )
 
 
@@ -86,22 +87,22 @@ def test_daily_plan_to_markdown_basic():
         has_dependencies=False,
         estimated_days=0.5,
     )
-    
+
     admin_block = AdminBlock(
         tasks=[],
         time_allocation_minutes=0,
         scheduled_time="14:00-15:30",
     )
-    
+
     plan = DailyPlan(
         date=date(2026, 1, 23),
         priorities=[classification],
         admin_block=admin_block,
         other_tasks=[],
     )
-    
+
     markdown = plan.to_markdown()
-    
+
     # Verify markdown structure
     assert "# Daily Plan - 2026-01-23" in markdown
     assert "## Today's Priorities" in markdown
@@ -117,7 +118,7 @@ def test_daily_plan_to_markdown_with_closure_rate():
         time_allocation_minutes=0,
         scheduled_time="14:00-15:30",
     )
-    
+
     plan = DailyPlan(
         date=date(2026, 1, 23),
         priorities=[],
@@ -125,9 +126,9 @@ def test_daily_plan_to_markdown_with_closure_rate():
         other_tasks=[],
         previous_closure_rate=0.67,
     )
-    
+
     markdown = plan.to_markdown()
-    
+
     assert "## Previous Day" in markdown
     assert "Closure Rate: 2/3 tasks completed (67%)" in markdown
 
@@ -150,22 +151,22 @@ def test_daily_plan_to_markdown_with_admin_tasks():
         has_dependencies=False,
         estimated_days=0.25,
     )
-    
+
     admin_block = AdminBlock(
         tasks=[admin_classification],
         time_allocation_minutes=60,
         scheduled_time="14:00-15:00",
     )
-    
+
     plan = DailyPlan(
         date=date(2026, 1, 23),
         priorities=[],
         admin_block=admin_block,
         other_tasks=[],
     )
-    
+
     markdown = plan.to_markdown()
-    
+
     assert "## Administrative Block (14:00-15:00)" in markdown
     assert "[PROJ-200] Review emails" in markdown
 
@@ -188,7 +189,7 @@ def test_daily_plan_to_markdown_with_other_tasks():
         has_dependencies=True,
         estimated_days=2.0,
     )
-    
+
     long_issue = JiraIssue(
         key="PROJ-400",
         summary="Long running task",
@@ -206,13 +207,13 @@ def test_daily_plan_to_markdown_with_other_tasks():
         has_dependencies=False,
         estimated_days=2.5,
     )
-    
+
     admin_block = AdminBlock(
         tasks=[],
         time_allocation_minutes=0,
         scheduled_time="14:00-15:30",
     )
-    
+
     plan = DailyPlan(
         date=date(2026, 1, 23),
         priorities=[],
@@ -220,9 +221,9 @@ def test_daily_plan_to_markdown_with_other_tasks():
         other_tasks=[blocked_classification],
         decomposition_suggestions=[long_classification],
     )
-    
+
     markdown = plan.to_markdown()
-    
+
     # Check decomposition suggestions section
     assert "## ⚠️ Tasks Requiring Decomposition" in markdown
     assert "[PROJ-400] Long running task" in markdown
@@ -230,7 +231,7 @@ def test_daily_plan_to_markdown_with_other_tasks():
     assert "Story points: 5 SP" in markdown
     assert "Break into 3 daily-closable subtasks" in markdown
     assert "triage decompose PROJ-400" in markdown
-    
+
     # Check other tasks section
     assert "## Other Active Tasks (For Reference)" in markdown
     assert "[PROJ-300] Blocked task (blocked by dependencies)" in markdown
@@ -256,7 +257,7 @@ def test_approval_result_creation():
     )
     assert result.approved is True
     assert result.feedback is None
-    
+
     result_with_feedback = ApprovalResult(
         approved=False,
         feedback="Need more time",

@@ -1,6 +1,7 @@
 # TrIAge
 # Copyright (C) 2026 StrateCode
 # Licensed under the GNU Affero General Public License v3 (AGPLv3)
+# Updated: 2026-02-19
 
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
@@ -87,9 +88,16 @@ Resources:
       Handler: handlers.generate_plan
       Policies:
         - SecretsManagerReadWrite
+        - Statement:
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource:
+                - !Ref CoreEventTopic
       Environment:
         Variables:
           JIRA_SECRET_NAME: !Sub '/${Environment}/triage/jira-credentials'
+          CORE_EVENT_TOPIC_ARN: !Ref CoreEventTopic
       Events:
         ApiEvent:
           Type: Api
@@ -131,9 +139,16 @@ Resources:
       Handler: handlers.approve_plan
       Policies:
         - SecretsManagerReadWrite
+        - Statement:
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource:
+                - !Ref CoreEventTopic
       Environment:
         Variables:
           JIRA_SECRET_NAME: !Sub '/${Environment}/triage/jira-credentials'
+          CORE_EVENT_TOPIC_ARN: !Ref CoreEventTopic
       Events:
         ApiEvent:
           Type: Api
@@ -151,9 +166,16 @@ Resources:
       Timeout: 60
       Policies:
         - SecretsManagerReadWrite
+        - Statement:
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource:
+                - !Ref CoreEventTopic
       Environment:
         Variables:
           JIRA_SECRET_NAME: !Sub '/${Environment}/triage/jira-credentials'
+          CORE_EVENT_TOPIC_ARN: !Ref CoreEventTopic
       Events:
         ApiEvent:
           Type: Api
@@ -203,6 +225,198 @@ Resources:
       LogGroupName: !Sub '/aws/lambda/${DecomposeTaskFunction}'
       RetentionInDays: 7
 
+  # ============================================================================
+  # Plugin Architecture Infrastructure
+  # ============================================================================
+
+  # SNS Topic for Core Events
+  CoreEventTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub '${AWS::StackName}-CoreEvents'
+      DisplayName: TrIAge Core Events
+      KmsMasterKeyId: alias/aws/sns
+
+  # SQS Queue for Event Processing
+  CoreEventQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${AWS::StackName}-CoreEventQueue'
+      VisibilityTimeout: 180
+      MessageRetentionPeriod: 1209600  # 14 days
+      ReceiveMessageWaitTimeSeconds: 20  # Long polling
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt CoreEventDeadLetterQueue.Arn
+        maxReceiveCount: 3
+      KmsMasterKeyId: alias/aws/sqs
+
+  # Dead Letter Queue for Failed Events
+  CoreEventDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${AWS::StackName}-CoreEventDLQ'
+      MessageRetentionPeriod: 1209600  # 14 days
+      KmsMasterKeyId: alias/aws/sqs
+
+  # Subscribe Queue to SNS Topic
+  CoreEventQueueSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: sqs
+      TopicArn: !Ref CoreEventTopic
+      Endpoint: !GetAtt CoreEventQueue.Arn
+      RawMessageDelivery: false
+
+  # Allow SNS to send messages to SQS
+  CoreEventQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref CoreEventQueue
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Action:
+              - sqs:SendMessage
+            Resource: !GetAtt CoreEventQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref CoreEventTopic
+
+  # Lambda: Plugin Handler
+  PluginHandlerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/
+      Handler: plugin_handler.handler
+      Timeout: 30
+      MemorySize: 512
+      Policies:
+        - SecretsManagerReadWrite
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:GetParameters
+              Resource:
+                - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${Environment}/triage/*'
+        - Statement:
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource:
+                - !GetAtt GeneratePlanFunction.Arn
+                - !GetAtt ApprovePlanFunction.Arn
+                - !GetAtt DecomposeTaskFunction.Arn
+      Environment:
+        Variables:
+          JIRA_SECRET_NAME: !Sub '/${Environment}/triage/jira-credentials'
+          PLUGINS_ENABLED: slack
+          PLUGIN_CONFIG_PATH: /config/plugins
+          SLACK_SIGNING_SECRET_PARAM: !Sub '/${Environment}/triage/slack/signing_secret'
+          Environment: !Ref Environment
+      Events:
+        SlackWebhook:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TriageApi
+            Path: /plugins/slack/webhook
+            Method: POST
+            Auth:
+              Authorizer: NONE
+        SlackOAuthCallback:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TriageApi
+            Path: /plugins/slack/oauth/callback
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        SlackOAuthAuthorize:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TriageApi
+            Path: /plugins/slack/oauth/authorize
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        PluginHealth:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TriageApi
+            Path: /plugins/health
+            Method: GET
+            Auth:
+              Authorizer: NONE
+
+  # Lambda: Event Processor
+  EventProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/
+      Handler: event_processor.handler
+      Timeout: 180
+      MemorySize: 512
+      ReservedConcurrentExecutions: 5
+      Policies:
+        - SecretsManagerReadWrite
+        - Statement:
+            - Effect: Allow
+              Action:
+                - sqs:ReceiveMessage
+                - sqs:DeleteMessage
+                - sqs:GetQueueAttributes
+                - sqs:ChangeMessageVisibility
+              Resource:
+                - !GetAtt CoreEventQueue.Arn
+        - Statement:
+            - Effect: Allow
+              Action:
+                - sqs:SendMessage
+              Resource:
+                - !GetAtt CoreEventDeadLetterQueue.Arn
+        - Statement:
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource:
+                - !GetAtt GeneratePlanFunction.Arn
+                - !GetAtt ApprovePlanFunction.Arn
+                - !GetAtt DecomposeTaskFunction.Arn
+      Environment:
+        Variables:
+          JIRA_SECRET_NAME: !Sub '/${Environment}/triage/jira-credentials'
+          PLUGINS_ENABLED: slack
+          PLUGIN_CONFIG_PATH: /config/plugins
+          DEAD_LETTER_QUEUE_URL: !Ref CoreEventDeadLetterQueue
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt CoreEventQueue.Arn
+            BatchSize: 10
+            MaximumBatchingWindowInSeconds: 5
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+
+  # Permission for API Gateway to invoke Plugin Handler
+  # CloudWatch Log Groups for Plugin Functions
+  PluginHandlerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${PluginHandlerFunction}'
+      RetentionInDays: 7
+
+  EventProcessorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${EventProcessorFunction}'
+      RetentionInDays: 7
+
+
+
 Outputs:
   ApiUrl:
     Description: API Gateway endpoint URL
@@ -215,3 +429,46 @@ Outputs:
     Value: !Ref TriageApi
     Export:
       Name: !Sub '${AWS::StackName}-ApiId'
+
+  # Plugin Architecture Outputs
+  CoreEventTopicArn:
+    Description: SNS Topic ARN for Core Events
+    Value: !Ref CoreEventTopic
+    Export:
+      Name: !Sub '${AWS::StackName}-CoreEventTopicArn'
+
+  CoreEventQueueUrl:
+    Description: SQS Queue URL for Core Events
+    Value: !Ref CoreEventQueue
+    Export:
+      Name: !Sub '${AWS::StackName}-CoreEventQueueUrl'
+
+  CoreEventQueueArn:
+    Description: SQS Queue ARN for Core Events
+    Value: !GetAtt CoreEventQueue.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-CoreEventQueueArn'
+
+  PluginHandlerFunctionArn:
+    Description: Plugin Handler Lambda Function ARN
+    Value: !GetAtt PluginHandlerFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-PluginHandlerFunctionArn'
+
+  EventProcessorFunctionArn:
+    Description: Event Processor Lambda Function ARN
+    Value: !GetAtt EventProcessorFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-EventProcessorFunctionArn'
+
+  SlackWebhookUrl:
+    Description: Slack Webhook URL for event subscriptions
+    Value: !Sub 'https://${TriageApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/plugins/slack/webhook'
+    Export:
+      Name: !Sub '${AWS::StackName}-SlackWebhookUrl'
+
+  SlackOAuthCallbackUrl:
+    Description: Slack OAuth Callback URL for app installation
+    Value: !Sub 'https://${TriageApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/plugins/slack/oauth/callback'
+    Export:
+      Name: !Sub '${AWS::StackName}-SlackOAuthCallbackUrl'

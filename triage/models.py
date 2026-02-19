@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 
 class TaskCategory(Enum):
     """Task category classification."""
+
     PRIORITY_ELIGIBLE = "priority_eligible"
     ADMINISTRATIVE = "administrative"
     LONG_RUNNING = "long_running"
@@ -22,6 +23,7 @@ class TaskCategory(Enum):
 @dataclass
 class IssueLink:
     """Represents a link between JIRA issues."""
+
     link_type: str  # e.g., "blocks", "is blocked by"
     target_key: str  # Key of linked issue
     target_summary: str  # Summary of linked issue
@@ -30,6 +32,7 @@ class IssueLink:
 @dataclass
 class JiraIssue:
     """Raw JIRA issue data."""
+
     key: str  # e.g., "PROJ-123"
     summary: str  # Task title
     description: str  # Task description
@@ -47,6 +50,7 @@ class JiraIssue:
 @dataclass
 class TaskClassification:
     """Classification result for a task."""
+
     task: JiraIssue
     category: TaskCategory  # PRIORITY_ELIGIBLE, ADMINISTRATIVE, LONG_RUNNING, BLOCKING
     is_priority_eligible: bool  # Can be a daily priority
@@ -58,6 +62,7 @@ class TaskClassification:
 @dataclass
 class AdminBlock:
     """Grouped administrative tasks."""
+
     tasks: List[TaskClassification]
     time_allocation_minutes: int  # Max 90 minutes
     scheduled_time: str  # e.g., "14:00-15:30" (post-lunch)
@@ -66,6 +71,7 @@ class AdminBlock:
 @dataclass
 class DailyPlan:
     """A daily execution plan."""
+
     date: date
     priorities: List[TaskClassification]  # Max 3 tasks
     admin_block: AdminBlock
@@ -73,26 +79,26 @@ class DailyPlan:
     previous_closure_rate: Optional[float] = None  # Previous day's closure rate
     decomposition_suggestions: List[TaskClassification] = field(default_factory=list)  # Tasks that should be decomposed
     blocked_tasks: List[TaskClassification] = field(default_factory=list)  # Tasks blocked or waiting
-    
+
     def to_markdown(self) -> str:
         """Format plan as structured markdown.
-        
+
         Returns:
             Structured markdown representation of the daily plan
         """
         lines = []
-        
+
         # Header
         lines.append(f"# Daily Plan - {self.date.strftime('%Y-%m-%d')}")
         lines.append("")
-        
+
         # Previous day closure rate
         if self.previous_closure_rate is not None:
             # Calculate completed/total based on closure rate
             # Assuming max 3 priorities, but could be less
             # We'll estimate based on the rate
             percentage = int(self.previous_closure_rate * 100)
-            
+
             # For display purposes, we'll show a reasonable completed/total
             # If rate is 1.0, show 3/3; if 0.67, show 2/3; if 0.33, show 1/3; if 0.0, show 0/3
             if self.previous_closure_rate >= 0.95:
@@ -103,15 +109,15 @@ class DailyPlan:
                 completed, total = 1, 3
             else:
                 completed, total = 0, 3
-            
+
             lines.append("## Previous Day")
             lines.append(f"- Closure Rate: {completed}/{total} tasks completed ({percentage}%)")
             lines.append("")
-        
+
         # Today's priorities
         lines.append("## Today's Priorities")
         lines.append("")
-        
+
         if not self.priorities:
             lines.append("No priority tasks for today.")
             lines.append("")
@@ -127,7 +133,7 @@ class DailyPlan:
                 if task.status:
                     lines.append(f"   - Status: {task.status}")
                 lines.append("")
-        
+
         # Blocked/waiting tasks
         if self.blocked_tasks:
             lines.append("## 🚫 Blocked/Waiting Tasks")
@@ -139,11 +145,11 @@ class DailyPlan:
                 lines.append(f"- **[{task.key}] {task.summary}**")
                 lines.append(f"  - Status: {task.status}")
                 if classification.has_dependencies:
-                    lines.append(f"  - Reason: Blocked by dependencies")
+                    lines.append("  - Reason: Blocked by dependencies")
                 if task.priority:
                     lines.append(f"  - Priority: {task.priority}")
                 lines.append("")
-        
+
         # Decomposition suggestions
         if self.decomposition_suggestions:
             lines.append("## ⚠️ Tasks Requiring Decomposition")
@@ -161,7 +167,7 @@ class DailyPlan:
                 lines.append(f"  - Suggestion: Break into {int(effort_days) + 1} daily-closable subtasks")
                 lines.append(f"  - Command: `triage decompose {task.key}`")
                 lines.append("")
-        
+
         # Administrative block
         if self.admin_block.tasks:
             lines.append(f"## Administrative Block ({self.admin_block.scheduled_time})")
@@ -170,7 +176,7 @@ class DailyPlan:
                 task = classification.task
                 lines.append(f"- [ ] [{task.key}] {task.summary}")
             lines.append("")
-        
+
         # Other active tasks
         if self.other_tasks:
             lines.append("## Other Active Tasks (For Reference)")
@@ -184,13 +190,14 @@ class DailyPlan:
                     status_note = " (blocker priority)"
                 lines.append(f"- [{task.key}] {task.summary}{status_note}")
             lines.append("")
-        
+
         return "\n".join(lines)
 
 
 @dataclass
 class SubtaskSpec:
     """Specification for creating a subtask."""
+
     summary: str
     description: str
     estimated_days: float  # Must be <= 1.0
@@ -200,6 +207,7 @@ class SubtaskSpec:
 @dataclass
 class TaskCompletion:
     """Record of a completed task."""
+
     task_key: str  # JIRA key of completed task
     completion_date: date  # Date task was completed
     was_priority: bool  # Whether task was a priority task
@@ -208,6 +216,7 @@ class TaskCompletion:
 @dataclass
 class ClosureRecord:
     """Daily closure tracking record."""
+
     date: date
     total_priorities: int  # Total number of priority tasks
     completed_priorities: int  # Number of completed priority tasks
@@ -218,6 +227,7 @@ class ClosureRecord:
 @dataclass
 class ApprovalResult:
     """Result of user approval interaction."""
+
     approved: bool
     feedback: Optional[str] = None  # User feedback if rejected
     modifications: Optional[Dict[str, Any]] = None  # User modifications to proposal

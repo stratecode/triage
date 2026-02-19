@@ -172,6 +172,12 @@ Thumbs.db
 # ============================================================================
 env.json
 
+# Plugin configuration files (keep examples)
+config/plugins/*.yaml
+config/plugins/*.yml
+config/plugins/*.toml
+!config/plugins/*.example
+
 # ============================================================================
 # Distribution & Packaging
 # ============================================================================

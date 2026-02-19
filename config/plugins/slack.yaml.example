@@ -1,0 +1,39 @@
+# TrIAge
+# Copyright (C) 2026 StrateCode
+# Licensed under the GNU Affero General Public License v3 (AGPLv3)
+
+# Slack Plugin Configuration Example
+# Copy this file to slack.yaml and fill in your credentials
+# Note: Environment variables take precedence over this file
+
+plugin_name: slack
+plugin_version: 1.0.0
+enabled: true
+
+config:
+  # OAuth credentials from https://api.slack.com/apps
+  client_id: ${SLACK_CLIENT_ID}
+  client_secret: ${SLACK_CLIENT_SECRET}
+  
+  # Signing secret for webhook verification
+  signing_secret: ${SLACK_SIGNING_SECRET}
+  
+  # Bot token (obtained after workspace installation)
+  bot_token: ${SLACK_BOT_TOKEN}
+  
+  # Optional: App token for Socket Mode (not used in webhook mode)
+  # app_token: ${SLACK_APP_TOKEN}
+  
+  # OAuth redirect URI (must match Slack app configuration)
+  # redirect_uri: http://localhost:8001/plugins/slack/oauth/callback
+  
+  # Optional: Default channel for notifications
+  # default_channel: general
+  
+  # Optional: Scopes requested during OAuth
+  # scopes:
+  #   - chat:write
+  #   - commands
+  #   - app_mentions:read
+  #   - channels:read
+  #   - users:read

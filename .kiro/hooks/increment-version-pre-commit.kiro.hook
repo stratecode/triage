@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "name": "Increment Version Before Commit",
+  "description": "Increments the build number in pyproject.toml and triage/__init__.py before committing changes",
+  "version": "1",
+  "when": {
+    "type": "preToolUse",
+    "toolTypes": [
+      "git commit"
+    ]
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "python -c \"\nimport re\nfrom pathlib import Path\n\ndef increment_version(version_str):\n    parts = version_str.split('.')\n    if len(parts) == 3:\n        major, minor, build = parts\n        build = str(int(build) + 1)\n        return f'{major}.{minor}.{build}'\n    return version_str\n\n# Update pyproject.toml\npyproject_path = Path('pyproject.toml')\nif pyproject_path.exists():\n    content = pyproject_path.read_text()\n    match = re.search(r'version\\s*=\\s*\\\"([0-9]+\\.[0-9]+\\.[0-9]+)\\\"', content)\n    if match:\n        old_version = match.group(1)\n        new_version = increment_version(old_version)\n        content = content.replace(f'version = \\\"{old_version}\\\"', f'version = \\\"{new_version}\\\"')\n        pyproject_path.write_text(content)\n        print(f'Updated pyproject.toml: {old_version} -> {new_version}')\n\n# Update triage/__init__.py\ninit_path = Path('triage/__init__.py')\nif init_path.exists():\n    content = init_path.read_text()\n    match = re.search(r'__version__\\s*=\\s*\\\"([0-9]+\\.[0-9]+\\.[0-9]+)\\\"', content)\n    if match:\n        old_version = match.group(1)\n        new_version = increment_version(old_version)\n        content = content.replace(f'__version__ = \\\"{old_version}\\\"', f'__version__ = \\\"{new_version}\\\"')\n        init_path.write_text(content)\n        print(f'Updated triage/__init__.py: {old_version} -> {new_version}')\n\""
+  },
+  "workspaceFolderName": "secretary",
+  "shortName": "increment-version-pre-commit"
+}

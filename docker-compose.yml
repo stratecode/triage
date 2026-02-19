@@ -3,51 +3,239 @@
 # Licensed under the GNU Affero General Public License v3 (AGPLv3)
 
 services:
-  # API Gateway + Lambda Functions
+  # PostgreSQL Database
+  postgres:
+    image: postgres:18-alpine
+    ports:
+      - "5432:5432"
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-triage}
+      - POSTGRES_USER=${POSTGRES_USER:-triage_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-triage_password}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docs/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    networks:
+      - triage-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-triage_user} -d ${POSTGRES_DB:-triage}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # API Gateway Proxy (forwards to LocalStack API Gateway)
   api:
     build:
       context: .
       dockerfile: docker/Dockerfile.api
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
-      - LOG_LEVEL=DEBUG
-      - REGION=local
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
       - AWS_DEFAULT_REGION=eu-south-2
       - AWS_REGION=eu-south-2
-      - JIRA_BASE_URL=${JIRA_BASE_URL}
-      - JIRA_EMAIL=${JIRA_EMAIL}
-      - JIRA_API_TOKEN=${JIRA_API_TOKEN}
-      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-triage_user}:${POSTGRES_PASSWORD:-triage_password}@postgres:5432/${POSTGRES_DB:-triage}
+      - JIRA_SECRET_NAME=/local/triage/jira
+      - JWT_SECRET_NAME=/local/triage/jwt-secret
     volumes:
-      - ./triage:/app/triage:ro
-      - ./lambda:/app/lambda:ro
+      - ./docker:/app/docker:ro
       - ./logs:/app/logs
+      - localstack-init-data:/tmp
     networks:
       - triage-network
+    depends_on:
+      localstack-init:
+        condition: service_completed_successfully
+    command: ["python", "-m", "uvicorn", "docker.api_gateway_proxy:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 10
+      start_period: 40s
 
-  # Scheduled Task Runner (simula EventBridge)
-  scheduler:
+  # Scheduler Service - REPLACED BY EVENTBRIDGE IN LOCALSTACK
+  # EventBridge in LocalStack now handles scheduled plan generation
+  # Uncomment if you need custom scheduling logic beyond EventBridge
+  # scheduler:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/Dockerfile.scheduler
+  #   environment:
+  #     - API_URL=http://api:8000
+  #     - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+  #     - SCHEDULE_CRON=0 7 * * 1-5
+  #     - LOG_LEVEL=DEBUG
+  #   volumes:
+  #     - ./logs:/app/logs
+  #   networks:
+  #     - triage-network
+  #   depends_on:
+  #     api:
+  #       condition: service_healthy
+
+  # LocalStack for AWS services (SQS, SNS, Secrets Manager, Lambda, API Gateway, EventBridge)
+  localstack:
+    image: localstack/localstack:latest
+    ports:
+      - "4566:4566"  # LocalStack gateway
+      - "4571:4571"  # LocalStack edge port (legacy)
+    env_file:
+      - .env
+    environment:
+      - SERVICES=sqs,sns,secretsmanager,ssm,lambda,apigateway,iam,events,cloudformation,s3,logs
+      - DEBUG=1
+      - DATA_DIR=/var/lib/localstack
+      - AWS_DEFAULT_REGION=eu-south-2
+      - AWS_REGION=eu-south-2
+      - PERSISTENCE=1
+      - LAMBDA_EXECUTOR=docker
+      - LAMBDA_REMOTE_DOCKER=false
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - localstack-data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - triage-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # LocalStack Initializer (runs once to set up resources and deploy Lambdas)
+  localstack-init:
     build:
       context: .
-      dockerfile: docker/Dockerfile.scheduler
+      dockerfile: docker/Dockerfile.api
     environment:
-      - API_URL=http://api:8000
+      - AWS_DEFAULT_REGION=eu-south-2
+      - AWS_REGION=eu-south-2
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - JIRA_BASE_URL=${JIRA_BASE_URL}
+      - JIRA_EMAIL=${JIRA_EMAIL}
+      - JIRA_API_TOKEN=${JIRA_API_TOKEN}
+      - JIRA_PROJECT=${JIRA_PROJECT}
       - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
-      - SCHEDULE_CRON=0 7 * * 1-5
-      - LOG_LEVEL=DEBUG
+      - SLACK_CLIENT_ID=${SLACK_CLIENT_ID}
+      - SLACK_CLIENT_SECRET=${SLACK_CLIENT_SECRET}
+      - SLACK_SIGNING_SECRET=${SLACK_SIGNING_SECRET}
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-triage_user}:${POSTGRES_PASSWORD:-triage_password}@postgres:5432/${POSTGRES_DB:-triage}
     volumes:
-      - ./logs:/app/logs
+      - ./triage:/app/triage:ro
+      - ./lambda:/app/lambda:ro
+      - ./docker:/app/docker:ro
+      - ./template.yaml:/app/template.yaml:ro
+      - ./samconfig.toml:/app/samconfig.toml:ro
+      - localstack-init-data:/tmp
     networks:
       - triage-network
     depends_on:
-      api:
+      localstack:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo '🔧 Initializing LocalStack resources...' &&
+        python3 /app/docker/init-localstack.py &&
+        echo '🚀 Deploying CloudFormation stack...' &&
+        /app/docker/deploy-cloudformation.sh &&
+        echo '✅ LocalStack initialization complete!'
+      "
+    restart: "no"
+
+  # Plugin Handler (webhook events and OAuth) - NOW DEPLOYED AS LAMBDA
+  # This service is no longer needed as plugin endpoints are handled by Lambda
+  # Uncomment only if you need to debug plugin code locally outside Lambda
+  # plugin-handler:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/Dockerfile.api
+  #   ports:
+  #     - "8001:8001"
+  #   environment:
+  #     - LOG_LEVEL=DEBUG
+  #     - REGION=local
+  #     - AWS_DEFAULT_REGION=eu-south-2
+  #     - AWS_REGION=eu-south-2
+  #     - AWS_ENDPOINT_URL=http://localstack:4566
+  #     - JIRA_BASE_URL=${JIRA_BASE_URL}
+  #     - JIRA_EMAIL=${JIRA_EMAIL}
+  #     - JIRA_API_TOKEN=${JIRA_API_TOKEN}
+  #     - JIRA_PROJECT=${JIRA_PROJECT}
+  #     - JIRA_SECRET_NAME=triage/jira
+  #     - DATABASE_URL=postgresql://${POSTGRES_USER:-triage_user}:${POSTGRES_PASSWORD:-triage_password}@postgres:5432/${POSTGRES_DB:-triage}
+  #     - PLUGINS_ENABLED=slack
+  #     - PLUGIN_CONFIG_PATH=/app/config/plugins
+  #     - SLACK_CLIENT_ID=${SLACK_CLIENT_ID}
+  #     - SLACK_CLIENT_SECRET=${SLACK_CLIENT_SECRET}
+  #     - SLACK_SIGNING_SECRET=${SLACK_SIGNING_SECRET}
+  #     - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+  #     - SLACK_OAUTH_REDIRECT_URI=${SLACK_OAUTH_REDIRECT_URI:-http://localhost:8001/plugins/slack/oauth/callback}
+  #   volumes:
+  #     - ./triage:/app/triage
+  #     - ./lambda:/app/lambda
+  #     - ./docker:/app/docker
+  #     - ./config:/app/config
+  #     - ./logs:/app/logs
+  #   networks:
+  #     - triage-network
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     localstack:
+  #       condition: service_healthy
+  #   command: ["python", "-m", "uvicorn", "docker.plugin_handler_app:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
+
+  # Event Processor (SQS event processing) - POST-MVP FEATURE
+  # Uncomment when implementing plugin system
+  # event-processor:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/Dockerfile.api
+  #   environment:
+  #     - LOG_LEVEL=DEBUG
+  #     - REGION=local
+  #     - AWS_DEFAULT_REGION=eu-south-2
+  #     - AWS_REGION=eu-south-2
+  #     - AWS_ENDPOINT_URL=http://localstack:4566
+  #     - JIRA_BASE_URL=${JIRA_BASE_URL}
+  #     - JIRA_EMAIL=${JIRA_EMAIL}
+  #     - JIRA_API_TOKEN=${JIRA_API_TOKEN}
+  #     - JIRA_PROJECT=${JIRA_PROJECT}
+  #     - JIRA_SECRET_NAME=triage/jira
+  #     - DATABASE_URL=postgresql://${POSTGRES_USER:-triage_user}:${POSTGRES_PASSWORD:-triage_password}@postgres:5432/${POSTGRES_DB:-triage}
+  #     - PLUGINS_ENABLED=slack
+  #     - PLUGIN_CONFIG_PATH=/app/config/plugins
+  #     - CORE_EVENT_QUEUE_URL=http://localstack:4566/000000000000/triage-core-events
+  #     - DEAD_LETTER_QUEUE_URL=http://localstack:4566/000000000000/triage-dlq
+  #     - SLACK_CLIENT_ID=${SLACK_CLIENT_ID}
+  #     - SLACK_CLIENT_SECRET=${SLACK_CLIENT_SECRET}
+  #     - SLACK_SIGNING_SECRET=${SLACK_SIGNING_SECRET}
+  #     - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+  #   volumes:
+  #     - ./triage:/app/triage
+  #     - ./lambda:/app/lambda
+  #     - ./docker:/app/docker
+  #     - ./config:/app/config
+  #     - ./logs:/app/logs
+  #   networks:
+  #     - triage-network
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     localstack:
+  #       condition: service_healthy
+  #   command: ["python", "/app/docker/event_processor_worker.py"]
 
   # CloudWatch Logs Viewer (opcional)
   logs-viewer:
@@ -62,3 +250,11 @@ services:
 networks:
   triage-network:
     driver: bridge
+
+volumes:
+  postgres-data:
+    driver: local
+  localstack-data:
+    driver: local
+  localstack-init-data:
+    driver: local

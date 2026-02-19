@@ -1,0 +1,10 @@
+{
+  "httpMethod": "POST",
+  "path": "/api/v1/plan",
+  "headers": {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer test-token"
+  },
+  "body": "{\"date\": \"2026-02-19\", \"closure_rate\": 0.67}",
+  "isBase64Encoded": false
+}

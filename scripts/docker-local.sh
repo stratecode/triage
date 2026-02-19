@@ -43,58 +43,66 @@ COMMAND=${1:-up}
 case $COMMAND in
     up)
         print_info "Starting TrIAge local stack..."
-        docker-compose up -d
+        docker compose -p triage up -d
         
-        print_info "Waiting for services to be ready..."
+        print_info "Waiting for LocalStack initialization..."
+        echo "This may take a minute while Lambda functions are deployed..."
+        
+        print_info "Waiting for API Gateway proxy to be ready..."
         sleep 5
         
         print_info "Checking service health..."
-        docker-compose ps
+        docker compose -p triage ps
         
         echo ""
         print_info "✅ TrIAge local stack is running!"
         echo ""
         echo "📍 API URL: http://localhost:8000"
+        echo "📍 LocalStack: http://localhost:4566"
         echo "📊 Logs Viewer: http://localhost:8080"
         echo ""
-        echo "🔑 Generate a JWT token:"
-        echo "   curl -X POST http://localhost:8000/api/v1/auth/token?user_id=admin&expiry_days=30"
+        echo "🔍 Check API Gateway status:"
+        echo "   curl http://localhost:8000/health"
         echo ""
         echo "📋 View logs:"
-        echo "   docker-compose logs -f api"
-        echo "   docker-compose logs -f scheduler"
+        echo "   docker compose -p triage logs -f api"
+        echo "   docker compose -p triage logs -f localstack-init"
+        echo "   docker compose -p triage logs -f localstack"
+        echo ""
+        echo "🧪 Test the API:"
+        echo "   make docker-test"
         echo ""
         ;;
     
     down)
         print_info "Stopping TrIAge local stack..."
-        docker-compose down
+        docker compose -p triage down
         print_info "✅ Stack stopped"
         ;;
     
     restart)
         print_info "Restarting TrIAge local stack..."
-        docker-compose restart
+        docker compose -p triage restart
         print_info "✅ Stack restarted"
         ;;
     
     logs)
         SERVICE=${2:-api}
         print_info "Showing logs for $SERVICE..."
-        docker-compose logs -f $SERVICE
+        docker compose logs -f $SERVICE
         ;;
     
     build)
         print_info "Building Docker images..."
-        docker-compose build --no-cache
+        docker compose -p triage build --no-cache
         print_info "✅ Build complete"
         ;;
     
     rebuild)
         print_info "Rebuilding and restarting..."
-        docker-compose down
-        docker-compose build --no-cache
-        docker-compose up -d
+        docker compose -p triage down
+        docker compose -p triage build --no-cache
+        docker compose -p triage up -d
         print_info "✅ Rebuild complete"
         ;;
     
@@ -102,61 +110,38 @@ case $COMMAND in
         print_info "Testing API endpoints..."
         
         # Check if API is running
-        if ! curl -s http://localhost:8000/api/v1/health > /dev/null; then
-            print_error "API is not running. Start it with: ./scripts/docker-local.sh up"
+        if ! curl -s http://localhost:8000/health > /dev/null; then
+            print_error "API is not running. Start it with: make docker-up"
             exit 1
         fi
         
-        # Generate token
-        print_info "Generating JWT token..."
-        TOKEN_RESPONSE=$(curl -s -X POST "http://localhost:8000/api/v1/auth/token?user_id=admin&expiry_days=1")
-        TOKEN=$(echo $TOKEN_RESPONSE | grep -o '"token":"[^"]*' | cut -d'"' -f4)
-        
-        if [ -z "$TOKEN" ]; then
-            print_error "Failed to generate token"
-            exit 1
-        fi
-        
-        print_info "Token generated: ${TOKEN:0:20}..."
+        print_info "Checking API Gateway status..."
+        curl -s http://localhost:8000/health | jq .
         
         # Test health endpoint
         print_info "Testing /api/v1/health..."
         curl -s http://localhost:8000/api/v1/health | jq .
         
-        # Test plan generation
-        print_info "Testing /api/v1/plan..."
+        # Test plan generation (this will fail without auth, but tests the routing)
+        print_info "Testing /api/v1/plan (expect 401 without auth)..."
         curl -s -X POST \
-            -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json" \
             -d '{"date":"'$(date +%Y-%m-%d)'"}' \
             http://localhost:8000/api/v1/plan | jq .
         
-        print_info "✅ Tests complete"
+        print_info "✅ Basic connectivity tests complete"
+        print_info "Note: Full API tests require proper authentication setup in Lambda"
         ;;
     
     token)
-        USER_ID=${2:-admin}
-        EXPIRY=${3:-30}
-        
-        print_info "Generating JWT token for user: $USER_ID (expires in $EXPIRY days)..."
-        
-        TOKEN_RESPONSE=$(curl -s -X POST "http://localhost:8000/api/v1/auth/token?user_id=$USER_ID&expiry_days=$EXPIRY")
-        
-        echo ""
-        echo "$TOKEN_RESPONSE" | jq .
-        echo ""
-        
-        TOKEN=$(echo $TOKEN_RESPONSE | grep -o '"token":"[^"]*' | cut -d'"' -f4)
-        
-        if [ ! -z "$TOKEN" ]; then
-            print_info "Use this token in your requests:"
-            echo "Authorization: Bearer $TOKEN"
-        fi
+        print_warning "Token generation is now handled by Lambda functions in LocalStack"
+        print_info "Authentication needs to be implemented in the Lambda handlers"
+        print_info "For now, you can test endpoints without authentication"
         ;;
     
     clean)
         print_info "Cleaning up Docker resources..."
-        docker-compose down -v
+        docker compose -p triage down -v
         docker system prune -f
         rm -rf logs/*
         print_info "✅ Cleanup complete"
@@ -165,7 +150,7 @@ case $COMMAND in
     shell)
         SERVICE=${2:-api}
         print_info "Opening shell in $SERVICE container..."
-        docker-compose exec $SERVICE /bin/bash
+        docker compose exec $SERVICE /bin/bash
         ;;
     
     *)
